@@ -56,7 +56,7 @@ export function ActivityTab({ activities, activityDeals }: ActivityTabProps) {
                     type="button"
                     aria-pressed={activityFilter === item.value}
                     onClick={() => setActivityFilter(item.value)}
-                    className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${activityFilter === item.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${activityFilter === item.value ? "border-primary bg-primary-soft text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
                   >
                     {item.label}
                   </button>

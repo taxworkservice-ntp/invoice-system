@@ -35,11 +35,7 @@ export default function CatalogItemPage() {
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const toast = useToast();
-  const {
-    movements,
-    loading: movLoading,
-    refetch: refetchMovements,
-  } = useStockMovements(id);
+  const { movements, loading: movLoading, refetch: refetchMovements } = useStockMovements(id);
 
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,9 +45,7 @@ export default function CatalogItemPage() {
   const [revertReason, setRevertReason] = useState("");
   const [reverting, setReverting] = useState(false);
   const [prefillQty, setPrefillQty] = useState<number | undefined>(undefined);
-  const [prefillUseCarton, setPrefillUseCarton] = useState<boolean | undefined>(
-    undefined,
-  );
+  const [prefillUseCarton, setPrefillUseCarton] = useState<boolean | undefined>(undefined);
   const [correctTarget, setCorrectTarget] = useState<StockMovement | null>(null);
 
   useEffect(() => {
@@ -152,9 +146,9 @@ export default function CatalogItemPage() {
         setReverting(false);
         return;
       }
-      toast.success(isIn
-        ? "ยกเลิกรายการแล้ว — กรุณากรอกต้นทุนที่ถูกต้อง"
-        : "ยกเลิกรายการตัดสต็อกแล้ว");
+      toast.success(
+        isIn ? "ยกเลิกรายการแล้ว — กรุณากรอกต้นทุนที่ถูกต้อง" : "ยกเลิกรายการตัดสต็อกแล้ว",
+      );
       setRevertTarget(null);
       setRevertReason("");
       reloadItem();
@@ -162,9 +156,7 @@ export default function CatalogItemPage() {
       if (isIn) {
         setPrefillQty(result.prefillQty);
         const usedCarton =
-          hasCarton &&
-          revertTarget.qty_carton != null &&
-          Number(revertTarget.qty_carton) > 0;
+          hasCarton && revertTarget.qty_carton != null && Number(revertTarget.qty_carton) > 0;
         setPrefillUseCarton(usedCarton);
         setStockModal("in");
       }
@@ -184,11 +176,24 @@ export default function CatalogItemPage() {
     const isIn = correctTarget.movement_type === "manual_in";
     try {
       const result = isIn
-        ? await correctManualStockIn(correctTarget.id, profile.id, qtyBase, unitCost, reasonNote || undefined)
-        : await correctManualStockOut(correctTarget.id, profile.id, qtyBase, reasonNote || undefined);
+        ? await correctManualStockIn(
+            correctTarget.id,
+            profile.id,
+            qtyBase,
+            unitCost,
+            reasonNote || undefined,
+          )
+        : await correctManualStockOut(
+            correctTarget.id,
+            profile.id,
+            qtyBase,
+            reasonNote || undefined,
+          );
       if (!result.ok) {
         if (result.reason === "insufficient_stock") {
-          toast.error(`ไม่สามารถแก้ไขได้ — สต็อกคงเหลือไม่พอ (มี ${result.currentStock} ${item.base_unit})`);
+          toast.error(
+            `ไม่สามารถแก้ไขได้ — สต็อกคงเหลือไม่พอ (มี ${result.currentStock} ${item.base_unit})`,
+          );
         } else if (result.reason === "already_reverted") {
           toast.error("รายการนี้ถูกยกเลิกแล้ว ไม่สามารถแก้ไขได้");
         } else {
@@ -218,46 +223,40 @@ export default function CatalogItemPage() {
       </AppShell>
     );
 
-  const hasCarton = !!(
-    item.carton_unit &&
-    item.qty_per_carton &&
-    item.qty_per_carton > 0
-  );
+  const hasCarton = !!(item.carton_unit && item.qty_per_carton && item.qty_per_carton > 0);
 
   return (
     <AppShell
       title={item.name}
       showBack
-      action={permissions.canManageCatalog ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => navigate(`/catalog/${item.id}/edit`)}
-        >
-          แก้ไข
-        </Button>
-      ) : undefined}
+      action={
+        permissions.canManageCatalog ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => navigate(`/catalog/${item.id}/edit`)}
+          >
+            แก้ไข
+          </Button>
+        ) : undefined
+      }
     >
       <div className="space-y-4">
         <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-subtitle font-semibold text-ink-900">
-                {item.name}
-              </h2>
+              <h2 className="text-subtitle font-semibold text-ink-900">{item.name}</h2>
               <p className="text-title text-ink-700 mt-1">
                 ฿ {formatCurrency(item.unit_price)} / {item.base_unit}
               </p>
               {hasCarton && (
                 <p className="text-body text-ink-300">
-                  ฿{" "}
-                  {formatCurrency(item.unit_price * item.qty_per_carton!)}{" "}
-                  / {item.carton_unit}
+                  ฿ {formatCurrency(item.unit_price * item.qty_per_carton!)} / {item.carton_unit}
                 </p>
               )}
             </div>
             <span
-              className={`inline-flex px-2 py-1 rounded text-label font-medium shrink-0 ${ item.item_type === "product" ? "bg-sent-bg text-primary-deep" : "bg-draft-bg text-ink-300" }`}
+              className={`inline-flex px-2 py-1 rounded text-label font-medium shrink-0 ${item.item_type === "product" ? "bg-sent-bg text-primary-deep" : "bg-draft-bg text-ink-300"}`}
             >
               {item.item_type === "product" ? "สินค้า" : "บริการ"}
             </span>
@@ -275,10 +274,14 @@ export default function CatalogItemPage() {
               movements={movements}
               loading={movLoading}
               item={item}
-              onRevert={permissions.canManageCatalog ? (m) => {
-                setRevertTarget(m);
-                setRevertReason("");
-              } : undefined}
+              onRevert={
+                permissions.canManageCatalog
+                  ? (m) => {
+                      setRevertTarget(m);
+                      setRevertReason("");
+                    }
+                  : undefined
+              }
               onEdit={permissions.canManageCatalog ? (m) => setCorrectTarget(m) : undefined}
             />
           </>
@@ -323,15 +326,17 @@ export default function CatalogItemPage() {
               setRevertReason("");
             }
           }}
-          title={revertTarget?.movement_type === "manual_in" ? "ยกเลิกรายการรับสินค้าเข้า" : "ยกเลิกรายการตัดสต็อก"}
+          title={
+            revertTarget?.movement_type === "manual_in"
+              ? "ยกเลิกรายการรับสินค้าเข้า"
+              : "ยกเลิกรายการตัดสต็อก"
+          }
         >
           {revertTarget && (
             <div className="space-y-4">
               <div className="rounded-control border border-card-border bg-paper-field p-3 text-body space-y-1">
                 <div className="font-medium text-ink-900">รายการเดิม</div>
-                <div className="text-ink-700">
-                  วันที่: {docDate.date(revertTarget.created_at)}
-                </div>
+                <div className="text-ink-700">วันที่: {docDate.date(revertTarget.created_at)}</div>
                 <div className="text-ink-700">
                   จำนวน: {revertTarget.movement_type === "manual_in" ? "+" : "-"}
                   {formatMixedStock(
@@ -343,24 +348,20 @@ export default function CatalogItemPage() {
                 </div>
                 {revertTarget.unit_cost != null && (
                   <div className="text-ink-700">
-                    ต้นทุน/หน่วย: ฿
-                    {formatCurrency(Number(revertTarget.unit_cost))}
+                    ต้นทุน/หน่วย: ฿{formatCurrency(Number(revertTarget.unit_cost))}
                   </div>
                 )}
                 {revertTarget.movement_value != null && (
                   <div className="text-ink-700">
-                    มูลค่า: ฿
-                    {formatCurrency(Number(revertTarget.movement_value))}
+                    มูลค่า: ฿{formatCurrency(Number(revertTarget.movement_value))}
                   </div>
                 )}
                 {revertTarget.reason && (
-                  <div className="text-ink-300 italic">
-                    เหตุผลเดิม: {revertTarget.reason}
-                  </div>
+                  <div className="text-ink-300 italic">เหตุผลเดิม: {revertTarget.reason}</div>
                 )}
               </div>
 
-              <div className="rounded-control border border-amber-200 bg-amber-50 p-3 text-label text-amber-900">
+              <div className="rounded-control border border-warning-border bg-warning-soft p-3 text-label text-warning-text">
                 {revertTarget.movement_type === "manual_in"
                   ? "การยกเลิกจะตัดสต็อกออกตามจำนวนเดิม และคืนค่า avg_cost และ stock_value ให้เป็นเหมือนก่อนรับเข้ารายการนี้"
                   : "การยกเลิกจะคืนสต็อกกลับตามจำนวนเดิม และปรับค่า avg_cost และ stock_value กลับเป็นก่อนตัด"}
@@ -374,7 +375,11 @@ export default function CatalogItemPage() {
                   type="text"
                   value={revertReason}
                   onChange={(e) => setRevertReason(e.target.value)}
-                  placeholder={revertTarget.movement_type === "manual_in" ? "เช่น กรอกทุนผิด, จำนวนผิด" : "เช่น ตัดผิดรายการ, จำนวนผิด"}
+                  placeholder={
+                    revertTarget.movement_type === "manual_in"
+                      ? "เช่น กรอกทุนผิด, จำนวนผิด"
+                      : "เช่น ตัดผิดรายการ, จำนวนผิด"
+                  }
                   className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>

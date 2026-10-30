@@ -180,7 +180,7 @@ export default function SetupPage() {
                   autoFocus
                 />
                 {errors.companyName && (
-                  <p className="text-label text-red-500 -mt-3">{errors.companyName}</p>
+                  <p className="text-label text-danger-text -mt-3">{errors.companyName}</p>
                 )}
 
                 <Input
@@ -195,7 +195,7 @@ export default function SetupPage() {
                   และผู้ดูแลระบบจะเปิดให้เมื่อบริษัทจดทะเบียนแล้ว
                 </div>
 
-                {error && <p className="text-label text-red-500">{error}</p>}
+                {error && <p className="text-label text-danger-text">{error}</p>}
 
                 <Button
                   className="w-full text-title font-semibold"
@@ -301,8 +301,8 @@ export default function SetupPage() {
                   </div>
                 )}
 
-                {errors.item && <p className="text-label text-red-500">{errors.item}</p>}
-                {error && <p className="text-label text-red-500">{error}</p>}
+                {errors.item && <p className="text-label text-danger-text">{errors.item}</p>}
+                {error && <p className="text-label text-danger-text">{error}</p>}
 
                 <Button
                   className="w-full"

@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Star, Truck } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronRight,
+  ClipboardList,
+  CreditCard,
+  FileStack,
+  FileText,
+  Gauge,
+  GripHorizontal,
+  ReceiptText,
+  Star,
+  Truck,
+} from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { supabase } from "../../lib/supabase";
 import type { WorkspacePermissions } from "../../lib/permissions";
@@ -10,13 +23,27 @@ import type { ClientMemberRole } from "../../types";
 interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (type: "quotation" | "invoice" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill") => void;
+  onSelect: (
+    type:
+      | "quotation"
+      | "invoice"
+      | "delivery_note"
+      | "billing_note"
+      | "invoice_from_delivery_notes"
+      | "utility_bill",
+  ) => void;
   vatRegistered?: boolean;
   workspaceRole?: ClientMemberRole | null;
   workspacePermissions?: WorkspacePermissions;
 }
 
-type NewDealType = "quotation" | "invoice" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill";
+type NewDealType =
+  | "quotation"
+  | "invoice"
+  | "delivery_note"
+  | "billing_note"
+  | "invoice_from_delivery_notes"
+  | "utility_bill";
 
 const GROUPS: {
   title: string;
@@ -31,22 +58,58 @@ const GROUPS: {
   {
     title: "ขายแบบปกติ",
     options: [
-        { icon: ClipboardList, title: "ออกใบเสนอราคา", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", tag: "QT" },
-        { icon: FileText, title: "ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice", tag: "INV" },
+      {
+        icon: ClipboardList,
+        title: "ออกใบเสนอราคา",
+        subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้",
+        type: "quotation",
+        tag: "QT",
+      },
+      {
+        icon: FileText,
+        title: "ออกใบแจ้งหนี้ทันที",
+        subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ",
+        type: "invoice",
+        tag: "INV",
+      },
     ],
   },
   {
     title: "ส่งของก่อน ออกบิลทีหลัง",
     options: [
-      { icon: Truck, title: "สร้างใบส่งของ", subtitle: "ใช้เป็นทางลัดเมื่อต้องเตรียมส่งของก่อน ไม่ผูกกับใบเสนอราคา", type: "delivery_note", tag: "DN" },
-      { icon: FileStack, title: "รวมใบส่งของ → ออกบิล", subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน", type: "invoice_from_delivery_notes", tag: "DN→INV" },
+      {
+        icon: Truck,
+        title: "สร้างใบส่งของ",
+        subtitle: "ใช้เป็นทางลัดเมื่อต้องเตรียมส่งของก่อน ไม่ผูกกับใบเสนอราคา",
+        type: "delivery_note",
+        tag: "DN",
+      },
+      {
+        icon: FileStack,
+        title: "รวมใบส่งของ → ออกบิล",
+        subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน",
+        type: "invoice_from_delivery_notes",
+        tag: "DN→INV",
+      },
     ],
   },
   {
     title: "ออกบิลตามรอบ",
     options: [
-      { icon: Gauge, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill", tag: "R-BILL" },
-      { icon: ReceiptText, title: "รวมใบแจ้งหนี้ → ใบวางบิล", subtitle: "ใช้เมื่อลูกค้าต้องการวางบิลก่อนชำระเงิน", type: "billing_note", tag: "INV→BN" },
+      {
+        icon: Gauge,
+        title: "ออกบิลประจำรอบ",
+        subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน",
+        type: "utility_bill",
+        tag: "R-BILL",
+      },
+      {
+        icon: ReceiptText,
+        title: "รวมใบแจ้งหนี้ → ใบวางบิล",
+        subtitle: "ใช้เมื่อลูกค้าต้องการวางบิลก่อนชำระเงิน",
+        type: "billing_note",
+        tag: "INV→BN",
+      },
     ],
   },
 ];
@@ -54,15 +117,22 @@ const GROUPS: {
 const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice"];
 
 const TAG_STYLES: Record<NewDealType, string> = {
-  quotation: "bg-blue-50 text-blue-700",
+  quotation: "bg-primary-soft text-primary-deep",
   invoice: "bg-indigo-50 text-indigo-700",
-  delivery_note: "bg-amber-50 text-amber-700",
-  invoice_from_delivery_notes: "bg-purple-50 text-purple-700",
+  delivery_note: "bg-warning-soft text-warning-text",
+  invoice_from_delivery_notes: "bg-primary-soft text-primary-deep",
   utility_bill: "bg-cyan-50 text-cyan-700",
   billing_note: "bg-rose-50 text-rose-700",
 };
 
-export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, workspaceRole, workspacePermissions }: NewDealSheetProps) {
+export function NewDealSheet({
+  open,
+  onClose,
+  onSelect,
+  vatRegistered = true,
+  workspaceRole,
+  workspacePermissions,
+}: NewDealSheetProps) {
   const [showAllOptions, setShowAllOptions] = useState(false);
   // null = unknown (never paint DEFAULT_FAVORITES as a placeholder — render
   // a skeleton instead so the quick list never flickers defaults → custom).
@@ -78,10 +148,11 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
     workspacePermissions || getDefaultWorkspacePermissions(workspaceRole),
   );
   const visibleOptions = useMemo(
-    () => allOptions.filter((option) => {
-      if (!experience.isSimpleMode || experience.canShowAdvancedDealOptions) return true;
-      return option.type === "quotation" || option.type === "delivery_note";
-    }),
+    () =>
+      allOptions.filter((option) => {
+        if (!experience.isSimpleMode || experience.canShowAdvancedDealOptions) return true;
+        return option.type === "quotation" || option.type === "delivery_note";
+      }),
     [allOptions, experience.canShowAdvancedDealOptions, experience.isSimpleMode],
   );
   const quickOptions = useMemo(() => {
@@ -108,7 +179,8 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return null;
       const valid = (parsed as unknown[]).filter(
-        (type): type is NewDealType => typeof type === "string" && allOptions.some((option) => option.type === type),
+        (type): type is NewDealType =>
+          typeof type === "string" && allOptions.some((option) => option.type === type),
       );
       return valid.slice(0, 3);
     } catch {
@@ -162,7 +234,9 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
         }
         setPreferencesError("โหลดรายการโปรดไม่สำเร็จ ใช้ค่าเริ่มต้นชั่วคราว");
       } else if (data?.new_deal_favorites?.length) {
-        const valid = (data.new_deal_favorites as string[]).filter((type: string): type is NewDealType => allOptions.some((option) => option.type === type));
+        const valid = (data.new_deal_favorites as string[]).filter(
+          (type: string): type is NewDealType => allOptions.some((option) => option.type === type),
+        );
         const next = valid.slice(0, 3);
         setFavoriteTypes(next);
         setHasCustomizedFavorites(true);
@@ -238,7 +312,8 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
     const Icon = option.icon;
     const isFavorite = favoriteTypes?.includes(option.type) ?? false;
     const favoriteIndex = favoriteTypes?.indexOf(option.type) ?? -1;
-    const starDisabled = favoritesUnknown || preferencesLoading || (!isFavorite && (favoriteTypes?.length ?? 0) >= 3);
+    const starDisabled =
+      favoritesUnknown || preferencesLoading || (!isFavorite && (favoriteTypes?.length ?? 0) >= 3);
     return (
       <div
         key={option.type}
@@ -249,15 +324,23 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
           onClick={() => handleSelect(option.type)}
           className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-blue-50 text-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary">
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <div className="truncate text-body font-semibold text-ink-900">{optionTitle(option)}</div>
-              <span className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${TAG_STYLES[option.type]}`}>{option.tag}</span>
+              <div className="truncate text-body font-semibold text-ink-900">
+                {optionTitle(option)}
+              </div>
+              <span
+                className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${TAG_STYLES[option.type]}`}
+              >
+                {option.tag}
+              </span>
             </div>
-            <div className="mt-0.5 line-clamp-2 text-label leading-4 text-ink-500">{optionSubtitle(option)}</div>
+            <div className="mt-0.5 line-clamp-2 text-label leading-4 text-ink-500">
+              {optionSubtitle(option)}
+            </div>
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-ink-300" />
         </button>
@@ -265,10 +348,20 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
           type="button"
           onClick={() => toggleFavorite(option.type)}
           disabled={starDisabled}
-          aria-label={isFavorite ? `ยกเลิกโปรด ${optionTitle(option)}` : `เพิ่มรายการโปรด ${optionTitle(option)}`}
+          aria-label={
+            isFavorite
+              ? `ยกเลิกโปรด ${optionTitle(option)}`
+              : `เพิ่มรายการโปรด ${optionTitle(option)}`
+          }
           aria-pressed={isFavorite}
-          title={isFavorite ? "ยกเลิกรายการโปรด" : (favoriteTypes?.length ?? 0) >= 3 ? "เลือกได้สูงสุด 3 รายการ" : "เพิ่มรายการโปรด"}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-ink-300 hover:bg-amber-50 hover:text-amber-500"}`}
+          title={
+            isFavorite
+              ? "ยกเลิกรายการโปรด"
+              : (favoriteTypes?.length ?? 0) >= 3
+                ? "เลือกได้สูงสุด 3 รายการ"
+                : "เพิ่มรายการโปรด"
+          }
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-warning-text hover:bg-warning-soft" : "text-ink-300 hover:bg-warning-soft hover:text-warning-text"}`}
         >
           <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
         </button>
@@ -286,7 +379,11 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             <button
               type="button"
               onClick={() => moveFavorite(option.type, 1)}
-              disabled={favoriteIndex === (favoriteTypes?.length ?? 1) - 1 || favoritesUnknown || preferencesLoading}
+              disabled={
+                favoriteIndex === (favoriteTypes?.length ?? 1) - 1 ||
+                favoritesUnknown ||
+                preferencesLoading
+              }
               aria-label={`เลื่อน ${optionTitle(option)} ลง`}
               className="rounded p-0.5 text-ink-300 hover:bg-ink-50 hover:text-ink-600 disabled:opacity-25"
             >
@@ -305,12 +402,17 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
           <GripHorizontal className="h-5 w-8 text-line" />
         </div>
         <div className="px-1 pb-1 text-title font-semibold text-ink-900">เริ่มงานแบบไหน?</div>
-        <div className="px-1 text-label leading-5 text-ink-500">เลือกตามสิ่งที่ต้องทำตอนนี้ ระบบจะพาไปขั้นตอนถัดไปให้</div>
+        <div className="px-1 text-label leading-5 text-ink-500">
+          เลือกตามสิ่งที่ต้องทำตอนนี้ ระบบจะพาไปขั้นตอนถัดไปให้
+        </div>
         <div className="mt-4">
           <div className="flex items-center justify-between px-1 pb-1">
             <div className="text-label font-semibold text-ink-400">
               {favoritesUnknown ? (
-                <span className="inline-block h-3 w-24 animate-pulse rounded bg-line-faint" aria-hidden="true" />
+                <span
+                  className="inline-block h-3 w-24 animate-pulse rounded bg-line-faint"
+                  aria-hidden="true"
+                />
               ) : hasCustomizedFavorites ? (
                 "เริ่มงานด่วน"
               ) : (
@@ -322,7 +424,10 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
           {favoritesUnknown ? (
             <div className="space-y-2" aria-label="กำลังโหลดรายการโปรด">
               {[0, 1].map((key) => (
-                <div key={key} className="flex items-center gap-3 rounded-card border border-card-border bg-white px-3 py-3">
+                <div
+                  key={key}
+                  className="flex items-center gap-3 rounded-card border border-card-border bg-white px-3 py-3"
+                >
                   <div className="h-9 w-9 shrink-0 animate-pulse rounded-control bg-ink-50" />
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="h-3.5 w-2/3 animate-pulse rounded bg-ink-50" />
@@ -337,12 +442,16 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             </div>
           ) : (
             <div className="rounded-card border border-dashed border-card-border bg-paper-field px-4 py-4 text-center">
-              <Star className="mx-auto h-5 w-5 text-amber-400" />
+              <Star className="mx-auto h-5 w-5 text-warning-text" />
               <div className="mt-2 text-label font-medium text-ink-700">ยังไม่มีรายการโปรด</div>
-              <div className="mt-1 text-label leading-4 text-ink-500">เลือกดาวจากตัวเลือกเพิ่มเติม เพื่อให้แสดงที่นี่</div>
+              <div className="mt-1 text-label leading-4 text-ink-500">
+                เลือกดาวจากตัวเลือกเพิ่มเติม เพื่อให้แสดงที่นี่
+              </div>
             </div>
           )}
-          {preferencesError && <div className="mt-1 px-1 text-label text-amber-700">{preferencesError}</div>}
+          {preferencesError && (
+            <div className="mt-1 px-1 text-label text-warning-text">{preferencesError}</div>
+          )}
         </div>
         <div className="mt-3">
           <button
@@ -352,20 +461,26 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             aria-expanded={showAllOptions}
           >
             <span>{showAllOptions ? "ซ่อนตัวเลือกเพิ่มเติม" : "ตัวเลือกเพิ่มเติม"}</span>
-            <ChevronRight className={`h-4 w-4 transition-transform ${showAllOptions ? "rotate-90" : ""}`} />
+            <ChevronRight
+              className={`h-4 w-4 transition-transform ${showAllOptions ? "rotate-90" : ""}`}
+            />
           </button>
           {showAllOptions && (
             <div className="mt-2 space-y-4">
               {GROUPS.map((group) => {
-                const options = group.options.filter((option) => visibleOptions.some((visible) => visible.type === option.type));
+                const options = group.options.filter((option) =>
+                  visibleOptions.some((visible) => visible.type === option.type),
+                );
                 if (options.length === 0) return null;
                 return (
-                <div key={group.title}>
-                  <div className="px-1 pb-1 text-label font-semibold text-ink-400">{group.title}</div>
-                  <div className="divide-y divide-card-border rounded-card border border-card-border bg-white">
-                    {options.map(renderOption)}
+                  <div key={group.title}>
+                    <div className="px-1 pb-1 text-label font-semibold text-ink-400">
+                      {group.title}
+                    </div>
+                    <div className="divide-y divide-card-border rounded-card border border-card-border bg-white">
+                      {options.map(renderOption)}
+                    </div>
                   </div>
-                </div>
                 );
               })}
             </div>

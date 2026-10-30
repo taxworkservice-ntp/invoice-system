@@ -65,9 +65,9 @@ export function OverviewTab({
   return (
     <div className="space-y-4">
       {accountError && (
-        <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2.5 text-label leading-5 text-amber-900">
+        <div className="rounded-control border border-warning-border bg-warning-soft px-3 py-2.5 text-label leading-5 text-warning-text">
           <span className="font-medium">โหลดข้อมูลบัญชีไม่สำเร็จ:</span> {accountError}
-          <span className="text-amber-800/80"> ข้อมูลอื่นด้านล่างแสดงตามปกติ</span>
+          <span className="text-warning-text/80"> ข้อมูลอื่นด้านล่างแสดงตามปกติ</span>
           <button
             type="button"
             onClick={() => void onRetry()}

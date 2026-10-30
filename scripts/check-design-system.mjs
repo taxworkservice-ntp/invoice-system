@@ -29,29 +29,14 @@ const WIDTH_OWNERS = [/design[\\/]tokens\.ts$/, /components[\\/]layout[\\/]/];
  * sweep. Add a path here when a slice lands; never add a file to silence a
  * new violation.
  */
-const STRICT_SCOPE = [
-  /app[\\/]\(client\)[\\/]deals[\\/]/,
-  /app[\\/]\(client\)[\\/]documents[\\/]/,
-  /app[\\/]\(client\)[\\/]home\.tsx$/,
-  /components[\\/]deal[\\/]/,
-  /components[\\/]documents[\\/]/,
-  /components[\\/]payments[\\/]/,
-  /components[\\/]ui[\\/]/,
-];
+const STRICT_SCOPE = [/app[\\/]/, /components[\\/]/, /constants[\\/]/];
 
-const STRICT_NATIVE_SELECT_SCOPE = [
-  /app[\\/]\(client\)[\\/]deals[\\/]/,
-  /app[\\/]\(client\)[\\/]documents[\\/]/,
-  /app[\\/]\(client\)[\\/]home\.tsx$/,
-  /components[\\/]deal[\\/]/,
-  /components[\\/]documents[\\/]/,
-  /components[\\/]payments[\\/]/,
-];
+const STRICT_NATIVE_SELECT_SCOPE = [/app[\\/]/, /components[\\/](?!ui[\\/]|print[\\/])/];
 
 const STRICT_RULES = [
   {
     name: "raw semantic colour",
-    re: /\b(?:bg|text|border|ring|from|to|via)-(?:amber|blue|green|red|emerald|violet|purple|orange|yellow)-[0-9]+(?:\/[0-9]+)?/g,
+    re: /\b(?:bg|text|border|ring|from|to|via)-(?:amber|blue|green|red|emerald|violet|purple|orange|yellow|pink|teal)-[0-9]+(?:\/[0-9]+)?/g,
     hint: "use warning / success / danger / primary tokens",
   },
   {

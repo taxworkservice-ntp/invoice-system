@@ -98,7 +98,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && <p className="text-label text-red-500">{error}</p>}
+          {error && <p className="text-label text-danger-text">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </Button>

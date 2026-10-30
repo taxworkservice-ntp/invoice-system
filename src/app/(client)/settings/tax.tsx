@@ -103,7 +103,7 @@ export default function SettingsTaxPage() {
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-ink-50 text-ink-600"}`}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${vatRegistered ? "bg-success-soft text-success-text" : "bg-ink-50 text-ink-600"}`}
                 >
                   {vatRegistered ? "จด VAT" : "ไม่จด VAT"}
                 </span>
@@ -112,7 +112,7 @@ export default function SettingsTaxPage() {
 
             <div className="py-2.5">
               <div
-                className={`rounded-[8px] border p-3 ${vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-card-border bg-paper-soft"}`}
+                className={`rounded-[8px] border p-3 ${vatRegistered ? "border-success-border bg-success-soft/60" : "border-card-border bg-paper-soft"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>

@@ -255,7 +255,7 @@ export function TeamTab({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <select
+                        <Select
                           value={member.customRoleId ?? `base:${member.role}`}
                           disabled={isOwner || memberActionId === member.id}
                           onChange={(event) => {
@@ -284,7 +284,7 @@ export function TeamTab({
                               ))}
                             </optgroup>
                           )}
-                        </select>
+                        </Select>
                         {!isOwner && (
                           <>
                             <Button

@@ -87,7 +87,10 @@ export default function ResetPasswordPage() {
           <h1 className="text-display font-semibold text-ink-800">ตั้งรหัสผ่านใหม่</h1>
           <p className="text-body text-ink-400 mt-1">กรุณากรอกรหัสผ่านใหม่ของคุณ</p>
         </div>
-        <form onSubmit={handleResetPassword} className="bg-white border border-card-border rounded-card p-6 space-y-4">
+        <form
+          onSubmit={handleResetPassword}
+          className="bg-white border border-card-border rounded-card p-6 space-y-4"
+        >
           <Input
             id="password"
             label="รหัสผ่านใหม่"
@@ -106,7 +109,7 @@ export default function ResetPasswordPage() {
             required
             minLength={6}
           />
-          {error && <p className="text-label text-red-500">{error}</p>}
+          {error && <p className="text-label text-danger-text">{error}</p>}
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting ? "กำลังเปลี่ยนรหัสผ่าน..." : "เปลี่ยนรหัสผ่าน"}
           </Button>

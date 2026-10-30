@@ -119,7 +119,10 @@ export default function SetPasswordPage() {
             เนื่องจากนี่คือการเข้าสู่ระบบครั้งแรก กรุณาตั้งรหัสผ่านใหม่ของคุณเอง
           </p>
         </div>
-        <form onSubmit={handleSetPassword} className="bg-white border border-card-border rounded-card p-6 space-y-4">
+        <form
+          onSubmit={handleSetPassword}
+          className="bg-white border border-card-border rounded-card p-6 space-y-4"
+        >
           <Input
             id="password"
             label="รหัสผ่านใหม่"
@@ -139,7 +142,7 @@ export default function SetPasswordPage() {
             required
             minLength={6}
           />
-          {error && <p className="text-label text-red-500">{error}</p>}
+          {error && <p className="text-label text-danger-text">{error}</p>}
           <Button type="submit" className="w-full" loading={submitting} disabled={submitting}>
             {submitting ? "กำลังตั้งรหัสผ่าน..." : "ตั้งรหัสผ่าน"}
           </Button>

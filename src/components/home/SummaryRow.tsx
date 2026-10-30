@@ -32,7 +32,7 @@ export function SummaryRow({
         return (
           <Card
             key={item.label}
-            className={`min-h-[78px] border-[0.5px] p-3 cursor-pointer ${active ? "border-primary bg-blue-50/40" : ""}`}
+            className={`min-h-[78px] border-[0.5px] p-3 cursor-pointer ${active ? "border-primary bg-primary-soft/40" : ""}`}
             onClick={() => onCardTap(item.preset)}
           >
             <div className="flex items-start justify-between gap-2">

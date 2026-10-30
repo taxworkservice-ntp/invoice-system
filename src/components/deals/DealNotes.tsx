@@ -16,12 +16,17 @@ interface RawNote {
 }
 
 const ROLE_BADGE: Record<string, { label: string; color: string }> = {
-  owner: { label: "Owner", color: "bg-amber-100 text-amber-800" },
-  manager: { label: "Manager", color: "bg-blue-100 text-blue-800" },
+  owner: { label: "Owner", color: "bg-warning-soft text-warning-text" },
+  manager: { label: "Manager", color: "bg-primary-soft text-primary-deep" },
   officer: { label: "Officer", color: "bg-ink-50 text-ink-500" },
 };
 
-export function DealNotes({ dealId, userId, authorName, authorRole }: {
+export function DealNotes({
+  dealId,
+  userId,
+  authorName,
+  authorRole,
+}: {
   dealId: string;
   userId: string;
   authorName: string;
@@ -45,7 +50,9 @@ export function DealNotes({ dealId, userId, authorName, authorRole }: {
     setReady(true);
   }, [dealId]);
 
-  useEffect(() => { fetchNotes(); }, [fetchNotes]);
+  useEffect(() => {
+    fetchNotes();
+  }, [fetchNotes]);
 
   function autoResize() {
     const el = textareaRef.current;
@@ -102,7 +109,6 @@ export function DealNotes({ dealId, userId, authorName, authorRole }: {
         </>
       }
     >
-
       {notes.length === 0 && ready && (
         <p className="text-label text-ink-300 mb-3">ยังไม่มีบันทึก</p>
       )}
@@ -110,21 +116,28 @@ export function DealNotes({ dealId, userId, authorName, authorRole }: {
       {visibleNotes.map((note, i) => {
         const badge = ROLE_BADGE[note.author_role] || ROLE_BADGE.officer;
         return (
-        <div key={i} className="mb-3 last:mb-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className={`inline-flex rounded px-1.5 py-0.5 text-label font-medium ${badge.color}`}>
-              {badge.label}
-            </span>
-            <span className="text-label font-medium text-ink-900">{note.author_name}</span>
-            <span className="text-label text-ink-300">{relativeTimeThai(note.created_at)}</span>
+          <div key={i} className="mb-3 last:mb-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span
+                className={`inline-flex rounded px-1.5 py-0.5 text-label font-medium ${badge.color}`}
+              >
+                {badge.label}
+              </span>
+              <span className="text-label font-medium text-ink-900">{note.author_name}</span>
+              <span className="text-label text-ink-300">{relativeTimeThai(note.created_at)}</span>
+            </div>
+            <p className="text-label text-ink-700 whitespace-pre-wrap leading-relaxed pl-0.5">
+              {note.content}
+            </p>
           </div>
-          <p className="text-label text-ink-700 whitespace-pre-wrap leading-relaxed pl-0.5">{note.content}</p>
-        </div>
         );
       })}
 
       {!expanded && hiddenCount > 0 && (
-        <button onClick={() => setExpanded(true)} className="text-label text-primary font-medium hover:underline mt-1 mb-3">
+        <button
+          onClick={() => setExpanded(true)}
+          className="text-label text-primary font-medium hover:underline mt-1 mb-3"
+        >
           ดูทั้งหมด ({notes.length})
         </button>
       )}
@@ -133,7 +146,10 @@ export function DealNotes({ dealId, userId, authorName, authorRole }: {
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={(e) => { setContent(e.target.value); autoResize(); }}
+          onChange={(e) => {
+            setContent(e.target.value);
+            autoResize();
+          }}
           onKeyDown={handleKeyDown}
           rows={1}
           placeholder="เขียนบันทึก..."

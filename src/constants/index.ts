@@ -43,7 +43,7 @@ export const STATUS_COLORS: Record<DocumentStatus, { bg: string; text: string }>
   converted: { bg: "bg-voided-bg", text: "text-voided-text" },
   in_billing: { bg: "bg-sent-bg", text: "text-sent-text" },
   paid: { bg: "bg-paid-bg", text: "text-paid-text" },
-  partially_paid: { bg: "bg-amber-100", text: "text-amber-700" },
+  partially_paid: { bg: "bg-warning-soft", text: "text-warning-text" },
   overdue: { bg: "bg-overdue-bg", text: "text-overdue-text" },
   voided: { bg: "bg-voided-bg", text: "text-voided-text" },
   generated: { bg: "bg-paid-bg", text: "text-paid-text" },
@@ -51,22 +51,22 @@ export const STATUS_COLORS: Record<DocumentStatus, { bg: string; text: string }>
 };
 
 export const DOC_TYPE_COLORS: Record<DocumentType, { bg: string; text: string }> = {
-  quotation: { bg: "bg-purple-100", text: "text-purple-700" },
-  invoice: { bg: "bg-blue-100", text: "text-blue-700" },
-  billing_note: { bg: "bg-orange-100", text: "text-orange-700" },
-  receipt: { bg: "bg-green-100", text: "text-green-700" },
-  delivery_note: { bg: "bg-teal-100", text: "text-teal-700" },
-  credit_note: { bg: "bg-red-100", text: "text-red-700" },
-  debit_note: { bg: "bg-amber-100", text: "text-amber-700" },
+  quotation: { bg: "bg-primary-soft", text: "text-primary-deep" },
+  invoice: { bg: "bg-sent-bg", text: "text-sent-text" },
+  billing_note: { bg: "bg-warning-soft", text: "text-warning-text" },
+  receipt: { bg: "bg-success-soft", text: "text-success-text" },
+  delivery_note: { bg: "bg-accent-teal/10", text: "text-accent-teal" },
+  credit_note: { bg: "bg-danger-soft", text: "text-danger-text" },
+  debit_note: { bg: "bg-pending-bg", text: "text-pending-text" },
 };
 
 export const CHIP_COLORS = [
-  "bg-blue-50 text-blue-700",
-  "bg-green-50 text-green-700",
-  "bg-purple-50 text-purple-700",
-  "bg-amber-50 text-amber-700",
-  "bg-pink-50 text-pink-700",
-  "bg-teal-50 text-teal-700",
+  "bg-primary-soft text-primary-deep",
+  "bg-success-soft text-success-text",
+  "bg-pending-bg text-pending-text",
+  "bg-warning-soft text-warning-text",
+  "bg-accent-teal/10 text-accent-teal",
+  "bg-danger-soft text-danger-text",
 ];
 
 export const WHT_RATE_OPTIONS: { value: WhtRate; label: string }[] = [

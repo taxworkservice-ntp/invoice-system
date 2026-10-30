@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Package, AlertTriangle, TrendingDown, Download, Loader2, BarChart3, DollarSign, History, CalendarDays } from "lucide-react";
+import {
+  Package,
+  AlertTriangle,
+  TrendingDown,
+  Download,
+  Loader2,
+  BarChart3,
+  DollarSign,
+  History,
+  CalendarDays,
+} from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
@@ -25,7 +35,19 @@ function startOfMonth() {
   return monthStartString(localTodayString());
 }
 
-function SummaryCard({ icon, label, value, alert = false, onClick }: { icon: React.ReactNode; label: string; value: string; alert?: boolean; onClick?: () => void }) {
+function SummaryCard({
+  icon,
+  label,
+  value,
+  alert = false,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  alert?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <Card
       className={`min-h-[78px] border-card-border p-3 ${onClick ? "cursor-pointer transition-shadow" : ""}`}
@@ -37,7 +59,9 @@ function SummaryCard({ icon, label, value, alert = false, onClick }: { icon: Rea
         </span>
         {label}
       </div>
-      <div className={`mt-2 text-display font-semibold leading-tight tabular-nums ${alert ? "text-danger" : "text-ink-900"}`}>
+      <div
+        className={`mt-2 text-display font-semibold leading-tight tabular-nums ${alert ? "text-danger" : "text-ink-900"}`}
+      >
         {value}
       </div>
     </Card>
@@ -45,11 +69,11 @@ function SummaryCard({ icon, label, value, alert = false, onClick }: { icon: Rea
 }
 
 const MOVEMENT_BADGE: Record<string, string> = {
-  manual_in: "bg-green-50 text-green-700",
-  auto_in: "bg-green-50 text-green-700",
-  return_in: "bg-green-50 text-green-700",
-  auto_out: "bg-red-50 text-red-700",
-  manual_out: "bg-red-50 text-red-700",
+  manual_in: "bg-success-soft text-success-text",
+  auto_in: "bg-success-soft text-success-text",
+  return_in: "bg-success-soft text-success-text",
+  auto_out: "bg-danger-soft text-danger-text",
+  manual_out: "bg-danger-soft text-danger-text",
 };
 
 type StockSubTab = "overview" | "valuation" | "low" | "movements";
@@ -66,20 +90,39 @@ interface StockReportProps {
 }
 
 type ValuationSortKey = "name" | "stock_count" | "avg_cost" | "stock_value";
-type MovementSortKey = "date" | "itemName" | "type" | "qty" | "unitCost" | "movementValue" | "balance" | "balanceValue" | "docNumber";
+type MovementSortKey =
+  | "date"
+  | "itemName"
+  | "type"
+  | "qty"
+  | "unitCost"
+  | "movementValue"
+  | "balance"
+  | "balanceValue"
+  | "docNumber";
 
 export function StockReport({ userId }: StockReportProps) {
   const docDate = useDocDate();
   const navigate = useNavigate();
   const [dateFrom, setDateFrom] = useState(startOfMonth());
   const [dateTo, setDateTo] = useState(todayString());
-  const { summary, lowStockItems, movements, valuation, loading, error } = useStockReport(userId, dateFrom, dateTo);
+  const { summary, lowStockItems, movements, valuation, loading, error } = useStockReport(
+    userId,
+    dateFrom,
+    dateTo,
+  );
   const [subTab, setSubTab] = useState<StockSubTab>("overview");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  const valuationSort = useTableSort<Item, ValuationSortKey>(valuation ?? [], { key: "stock_value", dir: "desc" });
-  const movementSort = useTableSort<StockMovementRow, MovementSortKey>(movements, { key: "date", dir: "desc" });
+  const valuationSort = useTableSort<Item, ValuationSortKey>(valuation ?? [], {
+    key: "stock_value",
+    dir: "desc",
+  });
+  const movementSort = useTableSort<StockMovementRow, MovementSortKey>(movements, {
+    key: "date",
+    dir: "desc",
+  });
 
   async function handleExportXLSX() {
     if (!userId || exporting) return;
@@ -128,7 +171,11 @@ export function StockReport({ userId }: StockReportProps) {
   }
 
   if (error) {
-    return <div className="rounded-card border border-red-200 bg-red-50 p-4 text-body text-red-600">{error}</div>;
+    return (
+      <div className="rounded-card border border-danger-border bg-danger-soft p-4 text-body text-danger-text">
+        {error}
+      </div>
+    );
   }
 
   const hasWarnings = (summary?.lowStockCount || 0) > 0 || (summary?.outOfStockCount || 0) > 0;
@@ -165,7 +212,13 @@ export function StockReport({ userId }: StockReportProps) {
             </label>
           </div>
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExportXLSX} disabled={exporting} className="w-full sm:w-auto">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExportXLSX}
+          disabled={exporting}
+          className="w-full sm:w-auto"
+        >
           {exporting ? (
             <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
           ) : (
@@ -175,12 +228,16 @@ export function StockReport({ userId }: StockReportProps) {
         </Button>
       </div>
       {exportError && (
-        <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2 text-label text-red-600">
+        <div className="rounded-control border border-danger-border bg-danger-soft px-3 py-2 text-label text-danger-text">
           {exportError}
         </div>
       )}
 
-      <div className="flex gap-1 overflow-x-auto rounded-card border border-card-border bg-paper-field p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="มุมมองรายงานสต็อก">
+      <div
+        className="flex gap-1 overflow-x-auto rounded-card border border-card-border bg-paper-field p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        aria-label="มุมมองรายงานสต็อก"
+      >
         {SUB_TABS.map((tab) => {
           const active = subTab === tab.key;
           return (
@@ -190,7 +247,7 @@ export function StockReport({ userId }: StockReportProps) {
               role="tab"
               aria-selected={active}
               onClick={() => setSubTab(tab.key)}
-              className={`flex shrink-0 items-center justify-center gap-1.5 rounded-control px-3 py-1.5 text-label font-medium transition-colors ${ active ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-500" }`}
+              className={`flex shrink-0 items-center justify-center gap-1.5 rounded-control px-3 py-1.5 text-label font-medium transition-colors ${active ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-500"}`}
             >
               {tab.icon}
               {tab.label}
@@ -206,32 +263,73 @@ export function StockReport({ userId }: StockReportProps) {
         <div className="space-y-4">
           {summary && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าทั้งหมด" value={`${summary.totalItems} รายการ`} />
-              <SummaryCard icon={<TrendingDown className="h-4 w-4" />} label="มูลค่าสต็อก (ทุนเฉลี่ย)" value={formatCurrency(summary.totalValue)} />
-              <SummaryCard icon={<AlertTriangle className="h-4 w-4" />} label="สินค้าใกล้หมด" value={summary.lowStockCount.toString()} alert={summary.lowStockCount > 0} onClick={summary.lowStockCount > 0 ? () => setSubTab("low") : undefined} />
-              <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าหมด" value={summary.outOfStockCount.toString()} alert={summary.outOfStockCount > 0} onClick={summary.outOfStockCount > 0 ? () => setSubTab("low") : undefined} />
+              <SummaryCard
+                icon={<Package className="h-4 w-4" />}
+                label="สินค้าทั้งหมด"
+                value={`${summary.totalItems} รายการ`}
+              />
+              <SummaryCard
+                icon={<TrendingDown className="h-4 w-4" />}
+                label="มูลค่าสต็อก (ทุนเฉลี่ย)"
+                value={formatCurrency(summary.totalValue)}
+              />
+              <SummaryCard
+                icon={<AlertTriangle className="h-4 w-4" />}
+                label="สินค้าใกล้หมด"
+                value={summary.lowStockCount.toString()}
+                alert={summary.lowStockCount > 0}
+                onClick={summary.lowStockCount > 0 ? () => setSubTab("low") : undefined}
+              />
+              <SummaryCard
+                icon={<Package className="h-4 w-4" />}
+                label="สินค้าหมด"
+                value={summary.outOfStockCount.toString()}
+                alert={summary.outOfStockCount > 0}
+                onClick={summary.outOfStockCount > 0 ? () => setSubTab("low") : undefined}
+              />
             </div>
           )}
           {hasWarnings && (
-            <Card className="border-[0.5px] border-red-200 bg-red-50 p-4">
-            <h3 className="mb-3 text-label font-semibold text-danger">
-              สินค้าที่ต้องเติมสต็อก
-              {lowStockItems.length > 10 && <span className="ml-2 font-normal normal-case text-danger-border">10 จาก {lowStockItems.length} รายการ</span>}
-            </h3>
+            <Card className="border-[0.5px] border-danger-border bg-danger-soft p-4">
+              <h3 className="mb-3 text-label font-semibold text-danger">
+                สินค้าที่ต้องเติมสต็อก
+                {lowStockItems.length > 10 && (
+                  <span className="ml-2 font-normal normal-case text-danger-border">
+                    10 จาก {lowStockItems.length} รายการ
+                  </span>
+                )}
+              </h3>
               <div className="space-y-2">
                 {lowStockItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 text-body cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 rounded px-1 py-0.5 -mx-1 text-left text-body transition-colors hover:bg-danger-soft/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    onClick={() => navigate(`/catalog/${item.id}`)}
+                  >
                     <div className="flex min-w-0 items-center gap-2">
-                      <div className={`h-2 w-2 shrink-0 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-amber-500"}`} />
+                      <div
+                        className={`h-2 w-2 shrink-0 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-warning"}`}
+                      />
                       <span className="truncate text-ink-500">{item.name}</span>
-                      {item.sku && <span className="shrink-0 text-label text-ink-400">({item.sku})</span>}
+                      {item.sku && (
+                        <span className="shrink-0 text-label text-ink-400">({item.sku})</span>
+                      )}
                     </div>
                     <div className="shrink-0 text-right tabular-nums">
-                      <span className={`font-medium ${item.stock_count <= 0 ? "text-danger" : "text-amber-700"}`}>
-                        เหลือ {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+                      <span
+                        className={`font-medium ${item.stock_count <= 0 ? "text-danger" : "text-warning-text"}`}
+                      >
+                        เหลือ{" "}
+                        {formatMixedStock(
+                          item.stock_count,
+                          item.base_unit,
+                          item.carton_unit,
+                          item.qty_per_carton,
+                        )}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
               <button
@@ -245,11 +343,12 @@ export function StockReport({ userId }: StockReportProps) {
         </div>
       )}
 
-      {subTab === "valuation" && (
-        valuation && valuation.length > 0 ? (
+      {subTab === "valuation" &&
+        (valuation && valuation.length > 0 ? (
           <Card className="border-[0.5px] p-4">
             <h3 className="mb-3 text-label font-semibold text-ink-500">
-              มูลค่าสต็อกตามทุนเฉลี่ย <span className="font-normal normal-case text-ink-200">สูงสุด 20 อันดับ</span>
+              มูลค่าสต็อกตามทุนเฉลี่ย{" "}
+              <span className="font-normal normal-case text-ink-200">สูงสุด 20 อันดับ</span>
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-body">
@@ -279,7 +378,9 @@ export function StockReport({ userId }: StockReportProps) {
                       onClick={() => valuationSort.handleSort("avg_cost")}
                       className={TABLE.thSortable}
                     />
-                    <th className={`whitespace-nowrap px-3 py-2 text-right ${TABLE.thSortable}`}>ทุนเฉลี่ย/หน่วยรอง</th>
+                    <th className={`whitespace-nowrap px-3 py-2 text-right ${TABLE.thSortable}`}>
+                      ทุนเฉลี่ย/หน่วยรอง
+                    </th>
                     <SortableTh
                       label="มูลค่า"
                       align="right"
@@ -294,12 +395,25 @@ export function StockReport({ userId }: StockReportProps) {
                   {valuationSort.sorted.map((item) => (
                     <tr
                       key={item.id}
-                      className={TABLE.tbodyTr}
+                      className={`${TABLE.tbodyTr} cursor-pointer focus-visible:bg-paper-field focus-visible:outline-none`}
+                      tabIndex={0}
                       onClick={() => navigate(`/catalog/${item.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate(`/catalog/${item.id}`);
+                        }
+                      }}
                     >
                       <td className="whitespace-nowrap px-3 py-2 text-ink-500">{item.name}</td>
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
-                        {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+                        {formatMixedStock(
+                          item.stock_count,
+                          item.base_unit,
+                          item.carton_unit,
+                          item.qty_per_carton,
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
                         ฿{formatCurrency(item.avg_cost || 0)}
@@ -319,36 +433,56 @@ export function StockReport({ userId }: StockReportProps) {
             </div>
           </Card>
         ) : (
-          <EmptyState title="ยังไม่มีข้อมูลมูลค่าสต็อก" description="เพิ่มสินค้าและตัดสต็อกเพื่อดูมูลค่า" />
-        )
-      )}
+          <EmptyState
+            title="ยังไม่มีข้อมูลมูลค่าสต็อก"
+            description="เพิ่มสินค้าและตัดสต็อกเพื่อดูมูลค่า"
+          />
+        ))}
 
-      {subTab === "low" && (
-        hasWarnings ? (
-          <Card className="border-[0.5px] border-red-200 bg-red-50 p-4">
+      {subTab === "low" &&
+        (hasWarnings ? (
+          <Card className="border-[0.5px] border-danger-border bg-danger-soft p-4">
             <h3 className="mb-3 text-label font-semibold text-danger">สินค้าที่ต้องเติมสต็อก</h3>
             <div className="space-y-2">
               {lowStockItems.slice(0, 10).map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 text-body cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
+                <button
+                  key={item.id}
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 rounded px-1 py-0.5 -mx-1 text-left text-body transition-colors hover:bg-danger-soft/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  onClick={() => navigate(`/catalog/${item.id}`)}
+                >
                   <div className="flex min-w-0 items-center gap-2">
-                    <div className={`h-2 w-2 shrink-0 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-amber-500"}`} />
+                    <div
+                      className={`h-2 w-2 shrink-0 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-warning"}`}
+                    />
                     <span className="truncate text-ink-500">{item.name}</span>
-                    {item.sku && <span className="shrink-0 text-label text-ink-400">({item.sku})</span>}
+                    {item.sku && (
+                      <span className="shrink-0 text-label text-ink-400">({item.sku})</span>
+                    )}
                   </div>
                   <div className="shrink-0 text-right tabular-nums">
-                    <span className={`font-medium ${item.stock_count <= 0 ? "text-danger" : "text-amber-700"}`}>
-                      เหลือ {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+                    <span
+                      className={`font-medium ${item.stock_count <= 0 ? "text-danger" : "text-warning-text"}`}
+                    >
+                      เหลือ{" "}
+                      {formatMixedStock(
+                        item.stock_count,
+                        item.base_unit,
+                        item.carton_unit,
+                        item.qty_per_carton,
+                      )}
                     </span>
-                    <span className="ml-2 text-label text-ink-400">(แจ้งที่ {item.low_stock_threshold})</span>
+                    <span className="ml-2 text-label text-ink-400">
+                      (แจ้งที่ {item.low_stock_threshold})
+                    </span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </Card>
         ) : (
           <EmptyState title="สต็อกอยู่ในเกณฑ์ปกติ" description="ไม่มีสินค้าที่ต้องเติมในขณะนี้" />
-        )
-      )}
+        ))}
 
       {subTab === "movements" && (
         <div className="space-y-4">
@@ -372,9 +506,13 @@ export function StockReport({ userId }: StockReportProps) {
           {movements.length > 0 ? (
             <Card className="border-[0.5px] p-4">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-label font-semibold text-ink-500">ประวัติความเคลื่อนไหวสต็อก</h3>
+                <h3 className="text-label font-semibold text-ink-500">
+                  ประวัติความเคลื่อนไหวสต็อก
+                </h3>
                 {movementSort.sorted.length > 100 && (
-                  <span className="text-label text-ink-400">แสดง 100 จาก {movementSort.sorted.length} รายการ · ทั้งหมดใน Excel</span>
+                  <span className="text-label text-ink-400">
+                    แสดง 100 จาก {movementSort.sorted.length} รายการ · ทั้งหมดใน Excel
+                  </span>
                 )}
               </div>
               <div className="overflow-x-auto">
@@ -464,19 +602,45 @@ export function StockReport({ userId }: StockReportProps) {
                           const badge = MOVEMENT_BADGE[m.typeKey] || "bg-paper-field text-ink-600";
                           return (
                             <tr key={m.id} className={TABLE.tbodyTr}>
-                              <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">{docDate.numeric(m.date)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-ink-500">{m.itemName}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">
+                                {docDate.numeric(m.date)}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2 text-ink-500">
+                                {m.itemName}
+                              </td>
                               <td className="whitespace-nowrap px-3 py-2">
-                                <span className={`inline-flex rounded-full px-2 py-0.5 text-label font-medium ${badge}`}>{m.type}</span>
+                                <span
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-label font-medium ${badge}`}
+                                >
+                                  {m.type}
+                                </span>
                               </td>
-                              <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-danger" : "text-success-text"}`}>
-                                {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
+                              <td
+                                className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-danger" : "text-success-text"}`}
+                              >
+                                {m.qty > 0 ? "+" : ""}
+                                {m.qty} {m.baseUnit}
                               </td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">฿{formatCurrency(m.unitCost || 0)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">฿{formatCurrency(m.movementValue || 0)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">฿{formatCurrency(m.balanceValue || 0)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">{m.docNumber || m.reason || "-"}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                                ฿{formatCurrency(m.unitCost || 0)}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                                ฿{formatCurrency(m.movementValue || 0)}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                                {formatMixedStock(
+                                  m.balance,
+                                  m.baseUnit,
+                                  m.cartonUnit,
+                                  m.qtyPerCarton,
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                                ฿{formatCurrency(m.balanceValue || 0)}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">
+                                {m.docNumber || m.reason || "-"}
+                              </td>
                             </tr>
                           );
                         });
@@ -489,27 +653,56 @@ export function StockReport({ userId }: StockReportProps) {
                           lastDate = dayLabel;
                           rows.push(
                             <tr key={`day-${m.id}-${m.date}`} className="bg-paper-field">
-                              <td colSpan={9} className="px-3 py-1.5 text-label font-medium text-ink-400">{dayLabel}</td>
-                            </tr>
+                              <td
+                                colSpan={9}
+                                className="px-3 py-1.5 text-label font-medium text-ink-400"
+                              >
+                                {dayLabel}
+                              </td>
+                            </tr>,
                           );
                         }
                         const badge = MOVEMENT_BADGE[m.typeKey] || "bg-paper-field text-ink-600";
                         rows.push(
                           <tr key={m.id} className={TABLE.tbodyTr}>
                             <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400"></td>
-                            <td className="whitespace-nowrap px-3 py-2 text-ink-500">{m.itemName}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-ink-500">
+                              {m.itemName}
+                            </td>
                             <td className="whitespace-nowrap px-3 py-2">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-label font-medium ${badge}`}>{m.type}</span>
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-label font-medium ${badge}`}
+                              >
+                                {m.type}
+                              </span>
                             </td>
-                            <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-danger" : "text-success-text"}`}>
-                              {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
+                            <td
+                              className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-danger" : "text-success-text"}`}
+                            >
+                              {m.qty > 0 ? "+" : ""}
+                              {m.qty} {m.baseUnit}
                             </td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">฿{formatCurrency(m.unitCost || 0)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">฿{formatCurrency(m.movementValue || 0)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">฿{formatCurrency(m.balanceValue || 0)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">{m.docNumber || m.reason || "-"}</td>
-                          </tr>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                              ฿{formatCurrency(m.unitCost || 0)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                              ฿{formatCurrency(m.movementValue || 0)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                              {formatMixedStock(
+                                m.balance,
+                                m.baseUnit,
+                                m.cartonUnit,
+                                m.qtyPerCarton,
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-500">
+                              ฿{formatCurrency(m.balanceValue || 0)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">
+                              {m.docNumber || m.reason || "-"}
+                            </td>
+                          </tr>,
                         );
                       });
                       return rows;
@@ -519,7 +712,10 @@ export function StockReport({ userId }: StockReportProps) {
               </div>
             </Card>
           ) : (
-            <EmptyState title="ไม่มีความเคลื่อนไหว" description="ไม่พบรายการเคลื่อนไหวสต็อกในช่วงวันที่ที่เลือก" />
+            <EmptyState
+              title="ไม่มีความเคลื่อนไหว"
+              description="ไม่พบรายการเคลื่อนไหวสต็อกในช่วงวันที่ที่เลือก"
+            />
           )}
         </div>
       )}

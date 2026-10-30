@@ -12,15 +12,13 @@ interface CustomerPickerModalProps {
   taxSensitive?: boolean;
   onSelect: (customer: Customer) => void;
   onClose: () => void;
-  onCreate?: (customer: Pick<Customer, "name" | "code" | "tax_id" | "address">) => Promise<Customer>;
+  onCreate?: (
+    customer: Pick<Customer, "name" | "code" | "tax_id" | "address">,
+  ) => Promise<Customer>;
 }
 
 function customerSearchText(customer: Customer) {
-  return [
-    customer.name,
-    customer.code || "",
-    customer.tax_id || "",
-  ].join(" ").toLowerCase();
+  return [customer.name, customer.code || "", customer.tax_id || ""].join(" ").toLowerCase();
 }
 
 export function CustomerPickerModal({
@@ -38,7 +36,11 @@ export function CustomerPickerModal({
   const [newCustomer, setNewCustomer] = useState({ name: "", code: "", tax_id: "", address: "" });
 
   const sortedCustomers = useMemo(
-    () => [...customers].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th")),
+    () =>
+      [...customers].sort(
+        (a, b) =>
+          Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th"),
+      ),
     [customers],
   );
 
@@ -90,13 +92,47 @@ export function CustomerPickerModal({
           <div className="rounded-card border border-card-border bg-paper-soft p-3">
             <div className="mb-3 text-body font-medium text-ink-900">เพิ่มลูกค้าใหม่</div>
             <div className="space-y-2">
-              <Input label="รหัสลูกค้า *" value={newCustomer.code} onChange={(event) => setNewCustomer((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))} placeholder="เช่น JMK-001" />
-              <Input label="ชื่อลูกค้า *" value={newCustomer.name} onChange={(event) => setNewCustomer((prev) => ({ ...prev, name: event.target.value }))} />
-              <Input label="เลขผู้เสียภาษี" value={newCustomer.tax_id} onChange={(event) => setNewCustomer((prev) => ({ ...prev, tax_id: event.target.value }))} />
-              <Input label="ที่อยู่" value={newCustomer.address} onChange={(event) => setNewCustomer((prev) => ({ ...prev, address: event.target.value }))} />
+              <Input
+                label="รหัสลูกค้า *"
+                value={newCustomer.code}
+                onChange={(event) =>
+                  setNewCustomer((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))
+                }
+                placeholder="เช่น JMK-001"
+              />
+              <Input
+                label="ชื่อลูกค้า *"
+                value={newCustomer.name}
+                onChange={(event) =>
+                  setNewCustomer((prev) => ({ ...prev, name: event.target.value }))
+                }
+              />
+              <Input
+                label="เลขผู้เสียภาษี"
+                value={newCustomer.tax_id}
+                onChange={(event) =>
+                  setNewCustomer((prev) => ({ ...prev, tax_id: event.target.value }))
+                }
+              />
+              <Input
+                label="ที่อยู่"
+                value={newCustomer.address}
+                onChange={(event) =>
+                  setNewCustomer((prev) => ({ ...prev, address: event.target.value }))
+                }
+              />
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>ยกเลิก</Button>
-                <Button size="sm" disabled={!newCustomer.name.trim() || saving} loading={saving} onClick={handleCreate}>บันทึกและเลือก</Button>
+                <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>
+                  ยกเลิก
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!newCustomer.name.trim() || saving}
+                  loading={saving}
+                  onClick={handleCreate}
+                >
+                  บันทึกและเลือก
+                </Button>
               </div>
             </div>
           </div>
@@ -116,7 +152,9 @@ export function CustomerPickerModal({
 
         <div className="max-h-[52vh] overflow-y-auto rounded-card border border-card-border">
           {filteredCustomers.length === 0 ? (
-            <div className="px-3 py-6 text-center text-body text-ink-500">ไม่พบลูกค้าที่ตรงกับคำค้น</div>
+            <div className="px-3 py-6 text-center text-body text-ink-500">
+              ไม่พบลูกค้าที่ตรงกับคำค้น
+            </div>
           ) : (
             <div className="divide-y divide-card-border">
               {filteredCustomers.map((customer) => {
@@ -130,7 +168,7 @@ export function CustomerPickerModal({
                       onSelect(customer);
                       onClose();
                     }}
-                    className={`w-full px-3 py-3 text-left transition-colors hover:bg-paper-field ${selected ? "bg-blue-50" : "bg-white"}`}
+                    className={`w-full px-3 py-3 text-left transition-colors hover:bg-paper-field ${selected ? "bg-primary-soft" : "bg-white"}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-paper-warm text-ink-600">
@@ -138,16 +176,32 @@ export function CustomerPickerModal({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="break-words text-body font-semibold text-ink-900">{customer.name}</span>
-                          {customer.code && <span className="text-label font-mono text-primary font-medium">{customer.code}</span>}
-                          {customer.is_favorite && <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />}
+                          <span className="break-words text-body font-semibold text-ink-900">
+                            {customer.name}
+                          </span>
+                          {customer.code && (
+                            <span className="text-label font-mono text-primary font-medium">
+                              {customer.code}
+                            </span>
+                          )}
+                          {customer.is_favorite && (
+                            <Star className="h-3.5 w-3.5 fill-yellow-400 text-warning-text" />
+                          )}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-label text-ink-500">
                           {customer.tax_id && <span>เลขผู้เสียภาษี: {customer.tax_id}</span>}
                           {customer.phone && <span>{customer.phone}</span>}
                         </div>
-                        {customer.address && <div className="mt-1 line-clamp-2 text-label text-ink-500">{customer.address}</div>}
-                        {missingTaxInfo && <div className="mt-1 text-label text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>}
+                        {customer.address && (
+                          <div className="mt-1 line-clamp-2 text-label text-ink-500">
+                            {customer.address}
+                          </div>
+                        )}
+                        {missingTaxInfo && (
+                          <div className="mt-1 text-label text-warning-text">
+                            ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>

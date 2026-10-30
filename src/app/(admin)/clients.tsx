@@ -91,7 +91,7 @@ export default function AdminClientsPage() {
           doc_count: docCount || 0,
           customer_count: custCount || 0,
         };
-      })
+      }),
     );
 
     setClients(rows);
@@ -113,9 +113,7 @@ export default function AdminClientsPage() {
       <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 h-14 max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
-            <span className="text-body font-semibold text-ink-900">
-              ⚙ Admin
-            </span>
+            <span className="text-body font-semibold text-ink-900">⚙ Admin</span>
             <span className="text-body font-medium text-primary">ลูกค้า</span>
           </div>
           <button
@@ -135,10 +133,7 @@ export default function AdminClientsPage() {
           <h2 className="text-subtitle font-semibold text-ink-900">
             ลูกค้าทั้งหมด ({filteredClients.length})
           </h2>
-          <Button
-            size="sm"
-            onClick={() => navigate("/admin/clients/new")}
-          >
+          <Button size="sm" onClick={() => navigate("/admin/clients/new")}>
             <UserPlus className="w-4 h-4 mr-1" />
             เพิ่มลูกค้าใหม่
           </Button>
@@ -156,7 +151,7 @@ export default function AdminClientsPage() {
           </div>
         </div>
 
-        {error && <p className="text-label text-red-500 mb-3">{error}</p>}
+        {error && <p className="text-label text-danger-text mb-3">{error}</p>}
 
         {loading ? (
           <Spinner />
@@ -184,9 +179,7 @@ export default function AdminClientsPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="text-body font-semibold text-ink-900 truncate">
                         {c.company_name_th || (
-                          <span className="italic text-ink-200">
-                            ยังไม่ได้ตั้งค่าบริษัท
-                          </span>
+                          <span className="italic text-ink-200">ยังไม่ได้ตั้งค่าบริษัท</span>
                         )}
                       </h3>
                       {!c.company_name_th && (
@@ -196,9 +189,7 @@ export default function AdminClientsPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-label text-ink-300 mt-0.5">
-                      {c.email || "(ไม่พบอีเมล)"}
-                    </p>
+                    <p className="text-label text-ink-300 mt-0.5">{c.email || "(ไม่พบอีเมล)"}</p>
                     <p className="text-label text-ink-200 mt-1">
                       สร้างเมื่อ: {formatBuddhistDate(c.created_at)}
                       {c.doc_count > 0 && <> · {c.doc_count} เอกสาร</>}
@@ -207,7 +198,7 @@ export default function AdminClientsPage() {
                   </div>
                   <div className="shrink-0">
                     <span
-                      className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${ c.is_active ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-300" }`}
+                      className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${c.is_active ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-300"}`}
                     >
                       {c.is_active ? "ใช้งานอยู่" : "ปิดการใช้งาน"}
                     </span>

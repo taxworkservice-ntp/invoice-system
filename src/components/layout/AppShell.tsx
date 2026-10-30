@@ -226,7 +226,7 @@ export function AppShell({
             onClick={() => setLogoutOpen(true)}
             aria-label="ออกจากระบบ"
             title={sidebarExpanded ? undefined : "ออกจากระบบ"}
-            className={`flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-body text-red-500 transition-colors hover:bg-red-50 ${sidebarExpanded ? "" : "justify-center px-0"}`}
+            className={`flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-body text-danger-text transition-colors hover:bg-danger-soft ${sidebarExpanded ? "" : "justify-center px-0"}`}
           >
             <LogOut className="w-5 h-5" />
             {sidebarExpanded ? <span>ออกจากระบบ</span> : null}

@@ -32,7 +32,9 @@ interface CatalogItemPickerModalProps {
 }
 
 function itemSearchText(item: Item) {
-  return [item.name, item.sku || "", item.base_unit, item.carton_unit || ""].join(" ").toLowerCase();
+  return [item.name, item.sku || "", item.base_unit, item.carton_unit || ""]
+    .join(" ")
+    .toLowerCase();
 }
 
 export function CatalogItemPickerModal({
@@ -70,7 +72,11 @@ export function CatalogItemPickerModal({
   }, [createDefaultUnit, createItemType, open]);
 
   const sortedItems = useMemo(
-    () => [...items].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th")),
+    () =>
+      [...items].sort(
+        (a, b) =>
+          Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th"),
+      ),
     [items],
   );
 
@@ -142,7 +148,9 @@ export function CatalogItemPickerModal({
                       min="0"
                       step="0.01"
                       value={newItem.unit_price}
-                      onChange={(event) => setNewItem((prev) => ({ ...prev, unit_price: event.target.value }))}
+                      onChange={(event) =>
+                        setNewItem((prev) => ({ ...prev, unit_price: event.target.value }))
+                      }
                       placeholder="0.00"
                       className="flex-1 py-2 text-body focus:outline-none bg-transparent"
                     />
@@ -153,17 +161,27 @@ export function CatalogItemPickerModal({
                   <input
                     type="text"
                     value={newItem.base_unit}
-                    onChange={(event) => setNewItem((prev) => ({ ...prev, base_unit: event.target.value }))}
+                    onChange={(event) =>
+                      setNewItem((prev) => ({ ...prev, base_unit: event.target.value }))
+                    }
                     placeholder="ชิ้น"
                     className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
                   />
                 </label>
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>ยกเลิก</Button>
+                <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>
+                  ยกเลิก
+                </Button>
                 <Button
                   size="sm"
-                  disabled={!newItem.type || !newItem.name.trim() || newItem.unit_price === "" || isNaN(parseFloat(newItem.unit_price)) || saving}
+                  disabled={
+                    !newItem.type ||
+                    !newItem.name.trim() ||
+                    newItem.unit_price === "" ||
+                    isNaN(parseFloat(newItem.unit_price)) ||
+                    saving
+                  }
                   loading={saving}
                   onClick={handleCreate}
                 >
@@ -199,7 +217,9 @@ export function CatalogItemPickerModal({
 
         <div className="max-h-[58vh] overflow-y-auto rounded-card border border-card-border">
           {filteredItems.length === 0 ? (
-            <div className="px-3 py-6 text-center text-body text-ink-500">ไม่พบรายการที่ตรงกับคำค้น</div>
+            <div className="px-3 py-6 text-center text-body text-ink-500">
+              ไม่พบรายการที่ตรงกับคำค้น
+            </div>
           ) : (
             <div className="divide-y divide-card-border">
               {filteredItems.map((item) => {
@@ -220,8 +240,12 @@ export function CatalogItemPickerModal({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="break-words text-body font-semibold text-ink-900">{item.name}</span>
-                          {item.is_favorite && <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />}
+                          <span className="break-words text-body font-semibold text-ink-900">
+                            {item.name}
+                          </span>
+                          {item.is_favorite && (
+                            <Star className="h-3.5 w-3.5 fill-yellow-400 text-warning-text" />
+                          )}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-label text-ink-500">
                           {item.sku && <span>SKU {item.sku}</span>}
@@ -229,7 +253,13 @@ export function CatalogItemPickerModal({
                           <span>หน่วย {item.base_unit}</span>
                           {item.item_type === "product" && (
                             <span>
-                              คงเหลือ {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+                              คงเหลือ{" "}
+                              {formatMixedStock(
+                                item.stock_count,
+                                item.base_unit,
+                                item.carton_unit,
+                                item.qty_per_carton,
+                              )}
                             </span>
                           )}
                         </div>

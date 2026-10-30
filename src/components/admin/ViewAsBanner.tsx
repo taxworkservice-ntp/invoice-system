@@ -36,7 +36,7 @@ export function ViewAsBanner() {
   }
 
   return (
-    <div className="bg-amber-500 text-white">
+    <div className="bg-warning text-white">
       <div className="flex items-center gap-2 px-4 py-2">
         <Eye className="w-4 h-4 shrink-0" aria-hidden="true" />
         <p className="min-w-0 flex-1 truncate text-label font-medium">

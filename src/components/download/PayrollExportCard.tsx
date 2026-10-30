@@ -10,6 +10,7 @@ import { useDocDate } from "../YearEraProvider";
 import type { PayslipCompany } from "../../lib/payroll/payslipPdf";
 import type { PayrollRun } from "../../types";
 import { DownloadJobBar } from "./DownloadJobBar";
+import { Select } from "../ui/Select";
 
 type PayrollExportKind = "summary" | "bank" | "wht" | "payslips";
 
@@ -75,7 +76,12 @@ export function PayrollExportCard() {
     if (!userId || !runId) return;
     await job.run(async () => {
       const { loadPayrollExportBundle } = await import("../../lib/payroll/exportRun");
-      const { buildRunSummaryWorkbook, buildBankPaymentWorkbook, buildWhtWorkbook, workbookToBlob } = await import("../../lib/payroll/reportXlsx");
+      const {
+        buildRunSummaryWorkbook,
+        buildBankPaymentWorkbook,
+        buildWhtWorkbook,
+        workbookToBlob,
+      } = await import("../../lib/payroll/reportXlsx");
       const bundle = await loadPayrollExportBundle(userId, runId);
       const suffix = monthSuffix(bundle.run);
 
@@ -124,7 +130,12 @@ export function PayrollExportCard() {
         status: result.failed === 0 ? "success" : result.succeeded === 0 ? "failed" : "partial",
         error: result.failed > 0 ? `${result.failed} คนล้มเหลว` : undefined,
       });
-      return { total: bundle.employees.length, succeeded: result.succeeded, failed: result.failed, failures: result.failures };
+      return {
+        total: bundle.employees.length,
+        succeeded: result.succeeded,
+        failed: result.failed,
+        failures: result.failures,
+      };
     });
   }
 
@@ -141,27 +152,75 @@ export function PayrollExportCard() {
       </div>
 
       <div>
-        <label htmlFor="payroll-run" className="mb-0.5 block text-label text-ink-500">รอบจ่าย</label>
-        <select id="payroll-run" value={runId} onChange={(e) => setRunId(e.target.value)} disabled={loading || runs.length === 0} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50">
-          {runs.length === 0 && <option value="">{loading ? "กำลังโหลด..." : "ยังไม่มีรอบจ่าย"}</option>}
-          {runs.map((run) => (<option key={run.id} value={run.id}>{runLabel(run)}</option>))}
-        </select>
+        <label htmlFor="payroll-run" className="mb-0.5 block text-label text-ink-500">
+          รอบจ่าย
+        </label>
+        <Select
+          id="payroll-run"
+          value={runId}
+          onChange={(e) => setRunId(e.target.value)}
+          disabled={loading || runs.length === 0}
+          className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+        >
+          {runs.length === 0 && (
+            <option value="">{loading ? "กำลังโหลด..." : "ยังไม่มีรอบจ่าย"}</option>
+          )}
+          {runs.map((run) => (
+            <option key={run.id} value={run.id}>
+              {runLabel(run)}
+            </option>
+          ))}
+        </Select>
       </div>
 
       {selectedRun && (
         <div className="rounded-control bg-paper-field px-3 py-2 text-label text-ink-700">
-          <div className="flex justify-between"><span className="text-ink-500">พนักงาน</span><span className="font-medium">{selectedRun.employee_count ?? 0} คน</span></div>
-          <div className="mt-1 flex justify-between"><span className="text-ink-500">สถานะรอบ</span><span>{selectedRun.status === "finalized" ? "ยืนยันแล้ว" : "ฉบับร่าง"}</span></div>
+          <div className="flex justify-between">
+            <span className="text-ink-500">พนักงาน</span>
+            <span className="font-medium">{selectedRun.employee_count ?? 0} คน</span>
+          </div>
+          <div className="mt-1 flex justify-between">
+            <span className="text-ink-500">สถานะรอบ</span>
+            <span>{selectedRun.status === "finalized" ? "ยืนยันแล้ว" : "ฉบับร่าง"}</span>
+          </div>
         </div>
       )}
 
       <DownloadJobBar state={job} onCancel={job.cancel} onDismiss={job.reset} />
 
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => handleWorkbook("summary")} disabled={!runId || job.status === "running"} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">สรุปเงินเดือน (XLSX)</button>
-        <button type="button" onClick={() => handleWorkbook("bank")} disabled={!runId || job.status === "running"} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">เงินโอนธนาคาร (XLSX)</button>
-        <button type="button" onClick={() => handleWorkbook("wht")} disabled={!runId || job.status === "running"} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">ภาษีหัก ณ ที่จ่าย (XLSX)</button>
-        <button type="button" onClick={handlePayslips} disabled={!runId || job.status === "running"} className="rounded-control bg-primary px-3 py-2 text-label font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50">สลิปเงินเดือน (ZIP)</button>
+        <button
+          type="button"
+          onClick={() => handleWorkbook("summary")}
+          disabled={!runId || job.status === "running"}
+          className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50"
+        >
+          สรุปเงินเดือน (XLSX)
+        </button>
+        <button
+          type="button"
+          onClick={() => handleWorkbook("bank")}
+          disabled={!runId || job.status === "running"}
+          className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50"
+        >
+          เงินโอนธนาคาร (XLSX)
+        </button>
+        <button
+          type="button"
+          onClick={() => handleWorkbook("wht")}
+          disabled={!runId || job.status === "running"}
+          className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50"
+        >
+          ภาษีหัก ณ ที่จ่าย (XLSX)
+        </button>
+        <button
+          type="button"
+          onClick={handlePayslips}
+          disabled={!runId || job.status === "running"}
+          className="rounded-control bg-primary px-3 py-2 text-label font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          สลิปเงินเดือน (ZIP)
+        </button>
       </div>
     </div>
   );

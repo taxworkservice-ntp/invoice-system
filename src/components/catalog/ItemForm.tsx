@@ -10,9 +10,19 @@ import { useAuth } from "../../hooks/useAuth";
 import { useClientFeatures } from "../../hooks/useClientFeatures";
 import { useToast } from "../../hooks/useToast";
 import { isDuplicateSkuError, normalizeSku, validateSku } from "../../lib/sku";
-import { createCustomJobDetailField, DEFAULT_JOB_DETAIL_FIELDS, normalizeJobDetailFields } from "../../lib/jobDetails";
-import type { Item, JobDetailPresetField, ItemJobDetailField, ItemJobDetailPreset } from "../../types";
+import {
+  createCustomJobDetailField,
+  DEFAULT_JOB_DETAIL_FIELDS,
+  normalizeJobDetailFields,
+} from "../../lib/jobDetails";
+import type {
+  Item,
+  JobDetailPresetField,
+  ItemJobDetailField,
+  ItemJobDetailPreset,
+} from "../../types";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { Select } from "../ui/Select";
 
 type PresetState = Record<string, string[]>;
 
@@ -59,21 +69,17 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
   // Create starts with NOTHING chosen — the type decides what the record is
   // (stock-counted or not), so it must be a conscious pick, not a remembered
   // default. The last type is only offered as a hint chip.
-  const [itemType, setItemType] = useState<"product" | "service" | null>(
-    item?.item_type ?? null,
-  );
+  const [itemType, setItemType] = useState<"product" | "service" | null>(item?.item_type ?? null);
   const [lastType] = useState<"product" | "service" | null>(() => {
     const stored = localStorage.getItem("catalogLastType");
     return stored === "product" || stored === "service" ? stored : null;
   });
-  const [unitPrice, setUnitPrice] = useState(
-    item ? String(item.unit_price) : "",
-  );
-  const [hasJobDetails, setHasJobDetails] = useState(
-    item?.has_job_details || false,
-  );
+  const [unitPrice, setUnitPrice] = useState(item ? String(item.unit_price) : "");
+  const [hasJobDetails, setHasJobDetails] = useState(item?.has_job_details || false);
   const [jobDetailFields, setJobDetailFields] = useState(() => normalizeJobDetailFields());
-  const [jobDetailPresets, setJobDetailPresets] = useState<PresetState>(() => createEmptyPresetState());
+  const [jobDetailPresets, setJobDetailPresets] = useState<PresetState>(() =>
+    createEmptyPresetState(),
+  );
   const [newPresetValues, setNewPresetValues] = useState<Record<string, string>>({});
   const [baseUnit, setBaseUnit] = useState(item?.base_unit || "ชิ้น");
   const [cartonEnabled, setCartonEnabled] = useState(!!item?.carton_unit);
@@ -82,9 +88,7 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
     item?.qty_per_carton ? String(item.qty_per_carton) : "",
   );
   const [initialStock, setInitialStock] = useState("0");
-  const [initialCost, setInitialCost] = useState(
-    item?.avg_cost ? String(item.avg_cost) : "",
-  );
+  const [initialCost, setInitialCost] = useState(item?.avg_cost ? String(item.avg_cost) : "");
   const [lowStockThreshold, setLowStockThreshold] = useState(
     item ? String(item.low_stock_threshold) : "5",
   );
@@ -114,16 +118,20 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
       .eq("is_active", true)
       .then(({ data }) => {
         if (cancelled) return;
-        const units = (data || []).flatMap((row) => [row.base_unit, row.carton_unit || ""])
+        const units = (data || [])
+          .flatMap((row) => [row.base_unit, row.carton_unit || ""])
           .map((unit) => unit.trim())
           .filter(Boolean);
         setUnitPresets((current) => Array.from(new Set([...current, ...units])));
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [profile?.id]);
 
   useEffect(() => {
-    if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id) return;
+    if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id)
+      return;
 
     let cancelled = false;
     void loadJobDetailSetup(item.id, () => cancelled);
@@ -172,24 +180,27 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
   async function loadJobDetailSetup(sourceItemId: string, isCancelled: () => boolean) {
     setLoadingJobDetailPresets(true);
     setJobDetailPresetError("");
-    const [{ data: fieldData, error: fieldError }, { data: presetData, error: presetError }] = await Promise.all([
-      supabase
-        .from("item_job_detail_fields")
-        .select("*")
-        .eq("user_id", profile!.id)
-        .eq("item_id", sourceItemId)
-        .order("sort_order", { ascending: true }),
-      supabase
-      .from("item_job_detail_presets")
-      .select("*")
-      .eq("user_id", profile!.id)
-      .eq("item_id", sourceItemId)
-        .order("sort_order", { ascending: true }),
-    ]);
+    const [{ data: fieldData, error: fieldError }, { data: presetData, error: presetError }] =
+      await Promise.all([
+        supabase
+          .from("item_job_detail_fields")
+          .select("*")
+          .eq("user_id", profile!.id)
+          .eq("item_id", sourceItemId)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("item_job_detail_presets")
+          .select("*")
+          .eq("user_id", profile!.id)
+          .eq("item_id", sourceItemId)
+          .order("sort_order", { ascending: true }),
+      ]);
 
     if (isCancelled()) return;
     if (fieldError || presetError) {
-      setJobDetailPresetError(fieldError?.message || presetError?.message || "โหลดการตั้งค่าไม่สำเร็จ");
+      setJobDetailPresetError(
+        fieldError?.message || presetError?.message || "โหลดการตั้งค่าไม่สำเร็จ",
+      );
       setLoadingJobDetailPresets(false);
       return;
     }
@@ -271,14 +282,14 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
     const records = normalizedFields
       .filter((field) => field.field_type === "text")
       .flatMap(({ field_key }) =>
-      uniquePresetValues(jobDetailPresets[field_key] || []).map((value, index) => ({
-        user_id: profile.id,
-        item_id: itemId,
-        field_key,
-        value,
-        sort_order: index,
-      })),
-    );
+        uniquePresetValues(jobDetailPresets[field_key] || []).map((value, index) => ({
+          user_id: profile.id,
+          item_id: itemId,
+          field_key,
+          value,
+          sort_order: index,
+        })),
+      );
 
     if (records.length > 0) {
       const { error } = await supabase.from("item_job_detail_presets").insert(records);
@@ -309,10 +320,7 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
     if (!isEdit && itemType === "product") {
       const startingStock = parseFloat(initialStock) || 0;
       const startingCost = parseFloat(initialCost);
-      if (
-        startingStock > 0 &&
-        (!initialCost || isNaN(startingCost) || startingCost < 0)
-      ) {
+      if (startingStock > 0 && (!initialCost || isNaN(startingCost) || startingCost < 0)) {
         fieldErrors.initialCost = "กรุณากรอกราคาทุนเริ่มต้นให้ถูกต้อง";
       }
     }
@@ -353,8 +361,7 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
             ? hasJobDetails
             : item?.has_job_details || false,
       base_unit: baseUnit || "ชิ้น",
-      carton_unit:
-        cartonEnabled && itemType === "product" ? cartonUnit : null,
+      carton_unit: cartonEnabled && itemType === "product" ? cartonUnit : null,
       qty_per_carton:
         cartonEnabled && itemType === "product" && qtyPerCarton
           ? parseFloat(String(qtyPerCarton))
@@ -364,10 +371,7 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
 
     try {
       if (isEdit) {
-        const { error } = await supabase
-          .from("items")
-          .update(payload)
-          .eq("id", item!.id);
+        const { error } = await supabase.from("items").update(payload).eq("id", item!.id);
         if (error) throw error;
         await saveJobDetailPresets(item!.id);
         toast.success("บันทึกการเปลี่ยนแปลงแล้ว");
@@ -381,11 +385,7 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
           is_active: true,
         });
 
-        const { data, error } = await supabase
-          .from("items")
-          .insert(payload)
-          .select()
-          .single();
+        const { data, error } = await supabase.from("items").insert(payload).select().single();
         if (error) throw error;
         const newItem = data as Item;
         await saveJobDetailPresets(newItem.id);
@@ -427,19 +427,14 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
         return;
       }
 
-      toast.error(
-        err instanceof Error ? err.message : "เกิดข้อผิดพลาด",
-      );
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     }
 
     setSaving(false);
   }
 
   const cartonPreviewPrice =
-    cartonEnabled &&
-    cartonUnit &&
-    parseFloat(String(qtyPerCarton)) > 0 &&
-    unitPrice;
+    cartonEnabled && cartonUnit && parseFloat(String(qtyPerCarton)) > 0 && unitPrice;
   const presetCount = jobDetailFields.reduce(
     (sum, field) => sum + (jobDetailPresets[field.field_key]?.length || 0),
     0,
@@ -465,446 +460,455 @@ export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCre
         </p>
       ) : (
         <>
-      <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
-        <div className="mb-4 rounded-[10px] border border-paper-warm bg-paper-tint px-3 py-3">
-            <div className="flex items-center gap-2 text-label font-semibold text-ink-300">
-            <span>SKU</span>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium normal-case text-blue-700">จำเป็น</span>
-          </div>
-          <div className="mt-2 flex items-center gap-3">
+          <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
+            <div className="mb-4 rounded-[10px] border border-paper-warm bg-paper-tint px-3 py-3">
+              <div className="flex items-center gap-2 text-label font-semibold text-ink-300">
+                <span>SKU</span>
+                <span className="rounded-full bg-primary-soft px-2 py-0.5 text-label font-medium normal-case text-primary-deep">
+                  จำเป็น
+                </span>
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="text"
+                  value={sku}
+                  onChange={(e) => {
+                    setSku(normalizeSku(e.target.value));
+                    setErrors((prev) => ({ ...prev, sku: "" }));
+                  }}
+                  placeholder="BOX-001"
+                  className="flex-1 text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
+                />
+                <span className="shrink-0 rounded-full border border-card-border bg-white px-2.5 py-1 text-label font-medium text-ink-400">
+                  Internal ID
+                </span>
+              </div>
+              <p className="mt-2 text-label leading-5 text-ink-300">
+                ใช้รหัสสั้นที่ไม่ซ้ำกัน เพื่อค้นหาและแยกสินค้าได้ง่าย เช่น BOX-001 หรือ PAPER-A4-80G
+              </p>
+              {errors.sku && <p className="mt-1 text-label text-danger">{errors.sku}</p>}
+            </div>
+
             <input
               type="text"
-              value={sku}
+              value={name}
               onChange={(e) => {
-                setSku(normalizeSku(e.target.value));
-                setErrors((prev) => ({ ...prev, sku: "" }));
+                setName(e.target.value);
+                setErrors((prev) => ({ ...prev, name: "" }));
               }}
-              placeholder="BOX-001"
-              className="flex-1 text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
+              placeholder="เช่น กระดาษ A4, ออกแบบโลโก้..."
+              className="w-full text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
             />
-            <span className="shrink-0 rounded-full border border-card-border bg-white px-2.5 py-1 text-label font-medium text-ink-400">
-              Internal ID
-            </span>
+            {errors.name && <p className="text-label text-danger mt-1">{errors.name}</p>}
           </div>
-          <p className="mt-2 text-label leading-5 text-ink-300">
-            ใช้รหัสสั้นที่ไม่ซ้ำกัน เพื่อค้นหาและแยกสินค้าได้ง่าย เช่น BOX-001 หรือ PAPER-A4-80G
-          </p>
-          {errors.sku && (
-            <p className="mt-1 text-label text-danger">{errors.sku}</p>
-          )}
-        </div>
 
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setErrors((prev) => ({ ...prev, name: "" }));
-          }}
-          placeholder="เช่น กระดาษ A4, ออกแบบโลโก้..."
-          className="w-full text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
-        />
-        {errors.name && (
-          <p className="text-label text-danger mt-1">{errors.name}</p>
-        )}
-      </div>
+          <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
+            <div className="flex items-center gap-1">
+              <span className="text-title text-ink-900">฿</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={unitPrice}
+                onChange={(e) => {
+                  setUnitPrice(e.target.value);
+                  setErrors((prev) => ({ ...prev, unitPrice: "" }));
+                }}
+                placeholder="0.00"
+                className="flex-1 text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
+              />
+            </div>
+            {errors.unitPrice && <p className="text-label text-danger mt-1">{errors.unitPrice}</p>}
+            {cartonPreviewPrice && (
+              <p className="text-label text-ink-300 mt-1">
+                = ฿{" "}
+                {((parseFloat(unitPrice) || 0) * parseFloat(String(qtyPerCarton))).toLocaleString(
+                  "th-TH",
+                  {
+                    minimumFractionDigits: 2,
+                  },
+                )}{" "}
+                ต่อ{cartonUnit} ({qtyPerCarton} {baseUnit} x ฿{" "}
+                {(parseFloat(unitPrice) || 0).toLocaleString("th-TH", {
+                  minimumFractionDigits: 2,
+                })}
+                )
+              </p>
+            )}
+          </div>
 
-      <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
-        <div className="flex items-center gap-1">
-          <span className="text-title text-ink-900">฿</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={unitPrice}
-            onChange={(e) => {
-              setUnitPrice(e.target.value);
-              setErrors((prev) => ({ ...prev, unitPrice: "" }));
-            }}
-            placeholder="0.00"
-            className="flex-1 text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
-          />
-        </div>
-        {errors.unitPrice && (
-          <p className="text-label text-danger mt-1">
-            {errors.unitPrice}
-          </p>
-        )}
-        {cartonPreviewPrice && (
-          <p className="text-label text-ink-300 mt-1">
-            = ฿{" "}
-            {(
-              (parseFloat(unitPrice) || 0) * parseFloat(String(qtyPerCarton))
-            ).toLocaleString("th-TH", {
-              minimumFractionDigits: 2,
-            })}{" "}
-            ต่อ{cartonUnit} ({qtyPerCarton} {baseUnit} x ฿{" "}
-            {(parseFloat(unitPrice) || 0).toLocaleString("th-TH", {
-              minimumFractionDigits: 2,
-            })}
-            )
-          </p>
-        )}
-      </div>
-
-      <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
-        <div className="text-label font-semibold text-ink-300">
-          หน่วย
-        </div>
-        <UnitSelector
-          value={baseUnit}
-          onChange={setBaseUnit}
-          label="หน่วยฐาน"
-          customPresets={unitPresets}
-          onAddPreset={addUnitPreset}
-        />
-        {itemType === "product" && (
-          <>
-            <CartonUnitSection
-              enabled={cartonEnabled}
-              unit={cartonUnit}
-              qtyPerCarton={qtyPerCarton}
-              baseUnit={baseUnit}
-              unitPrice={parseFloat(unitPrice) || 0}
-              onEnabledChange={setCartonEnabled}
-              onUnitChange={(value) => {
-                setCartonUnit(value);
-                setErrors((prev) => ({ ...prev, cartonUnit: "" }));
-              }}
-              onQtyChange={(value) => {
-                setQtyPerCarton(String(value));
-                setErrors((prev) => ({ ...prev, qtyPerCarton: "" }));
-              }}
+          <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
+            <div className="text-label font-semibold text-ink-300">หน่วย</div>
+            <UnitSelector
+              value={baseUnit}
+              onChange={setBaseUnit}
+              label="หน่วยฐาน"
               customPresets={unitPresets}
               onAddPreset={addUnitPreset}
             />
-            {errors.cartonUnit && (
-              <p className="text-label text-danger">
-                {errors.cartonUnit}
-              </p>
+            {itemType === "product" && (
+              <>
+                <CartonUnitSection
+                  enabled={cartonEnabled}
+                  unit={cartonUnit}
+                  qtyPerCarton={qtyPerCarton}
+                  baseUnit={baseUnit}
+                  unitPrice={parseFloat(unitPrice) || 0}
+                  onEnabledChange={setCartonEnabled}
+                  onUnitChange={(value) => {
+                    setCartonUnit(value);
+                    setErrors((prev) => ({ ...prev, cartonUnit: "" }));
+                  }}
+                  onQtyChange={(value) => {
+                    setQtyPerCarton(String(value));
+                    setErrors((prev) => ({ ...prev, qtyPerCarton: "" }));
+                  }}
+                  customPresets={unitPresets}
+                  onAddPreset={addUnitPreset}
+                />
+                {errors.cartonUnit && <p className="text-label text-danger">{errors.cartonUnit}</p>}
+                {errors.qtyPerCarton && (
+                  <p className="text-label text-danger">{errors.qtyPerCarton}</p>
+                )}
+              </>
             )}
-            {errors.qtyPerCarton && (
-              <p className="text-label text-danger">
-                {errors.qtyPerCarton}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+          </div>
 
-      {itemType === "service" && jobDetailsFeatureEnabled && (
-        <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              checked={hasJobDetails}
-              onChange={(event) => setHasJobDetails(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-line text-primary focus:ring-primary"
-            />
-              <span>
-                <span className="flex flex-wrap items-center gap-2 text-body font-medium text-ink-900">
-                <span>เก็บรายละเอียดงานของบริการนี้</span>
-                <span className="inline-flex items-center rounded-full border border-primary-border bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
-                  ฟีเจอร์รายละเอียดงาน
+          {itemType === "service" && jobDetailsFeatureEnabled && (
+            <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={hasJobDetails}
+                  onChange={(event) => setHasJobDetails(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-line text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="flex flex-wrap items-center gap-2 text-body font-medium text-ink-900">
+                    <span>เก็บรายละเอียดงานของบริการนี้</span>
+                    <span className="inline-flex items-center rounded-full border border-primary-border bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
+                      ฟีเจอร์รายละเอียดงาน
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-label leading-5 text-ink-300">
+                    แสดงช่องกรอกรายละเอียดบนเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
+                  </span>
+                  <span className="mt-2 block rounded-control border border-card-border bg-paper-tint px-3 py-2 text-label leading-5 text-ink-600">
+                    เหมาะกับบริการงานผลิต/งานพิมพ์ที่ต้องระบุสเปกต่อรายการ
+                    หากเป็นบริการทั่วไปให้ปิดไว้เพื่อให้ฟอร์มเอกสารสั้นและใช้งานเร็ว
+                  </span>
+                  <span className="mt-2 block rounded-control border border-primary-border bg-primary-soft px-3 py-2 text-label leading-5 text-primary-deep">
+                    การเปลี่ยนช่องรายละเอียดมีผลกับผู้ใช้ทุกคนที่เลือกบริการนี้ในงานขายใหม่
+                    เอกสารเดิมจะไม่ถูกเปลี่ยนแปลง
+                  </span>
                 </span>
-              </span>
-              <span className="mt-1 block text-label leading-5 text-ink-300">
-                แสดงช่องกรอกรายละเอียดบนเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
-              </span>
-              <span className="mt-2 block rounded-control border border-card-border bg-paper-tint px-3 py-2 text-label leading-5 text-ink-600">
-                เหมาะกับบริการงานผลิต/งานพิมพ์ที่ต้องระบุสเปกต่อรายการ หากเป็นบริการทั่วไปให้ปิดไว้เพื่อให้ฟอร์มเอกสารสั้นและใช้งานเร็ว
-              </span>
-              <span className="mt-2 block rounded-control border border-blue-100 bg-blue-50 px-3 py-2 text-label leading-5 text-blue-800">
-                การเปลี่ยนช่องรายละเอียดมีผลกับผู้ใช้ทุกคนที่เลือกบริการนี้ในงานขายใหม่ เอกสารเดิมจะไม่ถูกเปลี่ยนแปลง
-              </span>
-            </span>
-          </label>
+              </label>
 
-          {hasJobDetails && (
-            <div className="border-t border-paper-warm pt-4">
-              <div className="mb-3">
-                <div className="text-body font-medium text-ink-900">ช่องรายละเอียดและตัวเลือกที่ใช้บ่อย</div>
-                <p className="mt-1 text-label leading-5 text-ink-300">
-                  กำหนดช่องที่ต้องการให้กรอกในเอกสาร แล้วเพิ่มค่าที่ใช้บ่อยใต้แต่ละช่อง ผู้ใช้ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
-                </p>
-                {loadingJobDetailPresets && (
-                  <p className="mt-2 rounded-control border border-card-border bg-white px-3 py-2 text-label text-ink-300">
-                    กำลังโหลดตัวเลือกที่บันทึกไว้...
-                  </p>
-                )}
-                {jobDetailPresetError && (
-                  <p className="mt-2 rounded-control border border-red-100 bg-red-50 px-3 py-2 text-label text-red-600">
-                    โหลดตัวเลือกที่บันทึกไว้ไม่สำเร็จ: {jobDetailPresetError}
-                  </p>
-                )}
-                {!loadingJobDetailPresets && !jobDetailPresetError && presetCount === 0 && (
-                  <p className="mt-2 rounded-control border border-dashed border-card-border bg-white px-3 py-2 text-label leading-5 text-ink-300">
-                    ยังไม่มีตัวเลือกที่บันทึกไว้ เพิ่มค่าด้านล่างแล้วกดบันทึก รายการจะกลับมาเป็นปุ่มให้ลบ/แก้ไขครั้งต่อไป
-                  </p>
-                )}
-              </div>
-
-              <div className="mb-4 rounded-control border border-emerald-100 bg-emerald-50 px-3 py-3">
-                <div className="text-label font-semibold text-emerald-900">ตัวอย่างที่ผู้ใช้จะเห็นตอนสร้างงานขาย</div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {jobDetailFields.filter((field) => field.is_enabled).map((field) => (
-                    <div key={field.field_key} className="rounded-control border border-emerald-100 bg-white px-2.5 py-2 text-label text-emerald-900">
-                      {field.label || "รายละเอียด"}
-                      <span className="ml-1 text-emerald-600">{field.field_type === "dimension" ? `หน่วย ${field.default_unit || "มม."}` : "เลือกหรือพิมพ์"}</span>
+              {hasJobDetails && (
+                <div className="border-t border-paper-warm pt-4">
+                  <div className="mb-3">
+                    <div className="text-body font-medium text-ink-900">
+                      ช่องรายละเอียดและตัวเลือกที่ใช้บ่อย
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {jobDetailFields.map((field, index) => (
-                  <div key={field.field_key} className="rounded-control border border-paper-warm bg-white p-3">
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <label className="flex min-w-0 flex-1 items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={field.is_enabled}
-                          onChange={(event) =>
-                            setJobDetailFields((prev) =>
-                              prev.map((item) =>
-                                item.field_key === field.field_key
-                                  ? { ...item, is_enabled: event.target.checked }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
-                        />
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(event) =>
-                            setJobDetailFields((prev) =>
-                              prev.map((item) =>
-                                item.field_key === field.field_key
-                                  ? { ...item, label: event.target.value }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className="min-w-0 flex-1 rounded-control border border-card-border bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          placeholder="ชื่อช่อง"
-                        />
-                      </label>
-                      <span className="rounded-full border border-card-border bg-paper-tint px-2 py-1 text-label text-ink-300">
-                        {field.field_type === "dimension" ? "ขนาด" : "ข้อความ"}
-                      </span>
-                      {field.field_type === "dimension" && (
-                        <select
-                          value={field.default_unit || "มม."}
-                          onChange={(e) =>
-                            setJobDetailFields((prev) =>
-                              prev.map((f) =>
-                                f.field_key === field.field_key
-                                  ? { ...f, default_unit: e.target.value }
-                                  : f,
-                              ),
-                            )
-                          }
-                          className="rounded-control border border-card-border bg-white px-2 py-1 text-label"
-                        >
-                          <option value="มม.">มม.</option>
-                          <option value="ซม.">ซม.</option>
-                          <option value="นิ้ว">นิ้ว</option>
-                          <option value="เมตร">เมตร</option>
-                        </select>
-                      )}
-                      <div className="flex items-center rounded-control border border-card-border bg-white">
-                        <button
-                          type="button"
-                          onClick={() => moveJobDetailField(field.field_key, -1)}
-                          disabled={index === 0}
-                          className="flex h-11 w-11 items-center justify-center rounded-l-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white md:h-8 md:w-8"
-                          aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ขึ้น`}
-                          title="เลื่อนขึ้น"
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </button>
-                        <div className="h-5 w-px bg-line" />
-                        <button
-                          type="button"
-                          onClick={() => moveJobDetailField(field.field_key, 1)}
-                          disabled={index === jobDetailFields.length - 1}
-                          className="flex h-11 w-11 items-center justify-center rounded-r-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white md:h-8 md:w-8"
-                          aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ลง`}
-                          title="เลื่อนลง"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                      </div>
-                      {field.is_custom && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setJobDetailFields((prev) => prev.filter((item) => item.field_key !== field.field_key));
-                            setJobDetailPresets((prev) => {
-                              const next = { ...prev };
-                              delete next[field.field_key];
-                              return next;
-                            });
-                          }}
-                          className="inline-flex min-h-11 items-center rounded-control border border-red-100 px-2.5 py-1.5 text-label font-medium text-red-600 transition-colors hover:bg-red-50 md:min-h-0"
-                        >
-                          ลบช่อง
-                        </button>
-                      )}
-                    </div>
-
-                    {field.field_type === "dimension" && (
-                      <p className="text-label leading-5 text-ink-300">
-                        ช่องขนาดใช้รูปแบบกว้าง x สูง และไม่มีตัวเลือกเริ่มต้น
+                    <p className="mt-1 text-label leading-5 text-ink-300">
+                      กำหนดช่องที่ต้องการให้กรอกในเอกสาร แล้วเพิ่มค่าที่ใช้บ่อยใต้แต่ละช่อง
+                      ผู้ใช้ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
+                    </p>
+                    {loadingJobDetailPresets && (
+                      <p className="mt-2 rounded-control border border-card-border bg-white px-3 py-2 text-label text-ink-300">
+                        กำลังโหลดตัวเลือกที่บันทึกไว้...
                       </p>
                     )}
-
-                    {field.field_type === "text" && (
-                      <>
-                    {(jobDetailPresets[field.field_key] || []).length > 0 && (
-                      <div className="mb-2 flex flex-wrap gap-1.5">
-                        {(jobDetailPresets[field.field_key] || []).map((value) => (
-                          <span
-                            key={value}
-                            className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-label text-ink-600"
-                          >
-                            {value}
-                            <button
-                              type="button"
-                              onClick={() => removePreset(field.field_key, value)}
-                              className="-m-2.5 flex h-4 w-4 items-center justify-center p-2.5 text-ink-400 transition-colors hover:text-red-500"
-                              aria-label={`ลบ ${value}`}
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
+                    {jobDetailPresetError && (
+                      <p className="mt-2 rounded-control border border-danger-border bg-danger-soft px-3 py-2 text-label text-danger-text">
+                        โหลดตัวเลือกที่บันทึกไว้ไม่สำเร็จ: {jobDetailPresetError}
+                      </p>
                     )}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newPresetValues[field.field_key] || ""}
-                        onChange={(event) =>
-                          setNewPresetValues((prev) => ({ ...prev, [field.field_key]: event.target.value }))
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            addPreset(field.field_key);
-                          }
-                        }}
-                        placeholder={field.placeholder}
-                        className="min-h-11 min-w-0 flex-1 rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 md:min-h-0"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => addPreset(field.field_key)}
-                        className="inline-flex min-h-11 shrink-0 items-center rounded-control border border-card-border bg-white px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:bg-paper-field md:min-h-0"
-                      >
-                        เพิ่ม
-                      </button>
-                    </div>
-                      </>
+                    {!loadingJobDetailPresets && !jobDetailPresetError && presetCount === 0 && (
+                      <p className="mt-2 rounded-control border border-dashed border-card-border bg-white px-3 py-2 text-label leading-5 text-ink-300">
+                        ยังไม่มีตัวเลือกที่บันทึกไว้ เพิ่มค่าด้านล่างแล้วกดบันทึก
+                        รายการจะกลับมาเป็นปุ่มให้ลบ/แก้ไขครั้งต่อไป
+                      </p>
                     )}
                   </div>
-                ))}
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setJobDetailFields((prev) => [
-                        ...prev,
-                        { ...createCustomJobDetailField("ช่องใหม่", "text"), sort_order: prev.length },
-                      ])
-                    }
-                    className="rounded-control border border-dashed border-line bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 transition-colors hover:border-primary hover:bg-primary-soft"
-                  >
-                    + เพิ่มช่องข้อความ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setJobDetailFields((prev) => [
-                        ...prev,
-                        { ...createCustomJobDetailField("ช่องใหม่", "dimension"), sort_order: prev.length },
-                      ])
-                    }
-                    className="rounded-control border border-dashed border-line bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 transition-colors hover:border-primary hover:bg-primary-soft"
-                  >
-                    + เพิ่มช่องขนาด
-                  </button>
+
+                  <div className="mb-4 rounded-control border border-success-border bg-success-soft px-3 py-3">
+                    <div className="text-label font-semibold text-success-text">
+                      ตัวอย่างที่ผู้ใช้จะเห็นตอนสร้างงานขาย
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {jobDetailFields
+                        .filter((field) => field.is_enabled)
+                        .map((field) => (
+                          <div
+                            key={field.field_key}
+                            className="rounded-control border border-success-border bg-white px-2.5 py-2 text-label text-success-text"
+                          >
+                            {field.label || "รายละเอียด"}
+                            <span className="ml-1 text-success-text">
+                              {field.field_type === "dimension"
+                                ? `หน่วย ${field.default_unit || "มม."}`
+                                : "เลือกหรือพิมพ์"}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {jobDetailFields.map((field, index) => (
+                      <div
+                        key={field.field_key}
+                        className="rounded-control border border-paper-warm bg-white p-3"
+                      >
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <label className="flex min-w-0 flex-1 items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={field.is_enabled}
+                              onChange={(event) =>
+                                setJobDetailFields((prev) =>
+                                  prev.map((item) =>
+                                    item.field_key === field.field_key
+                                      ? { ...item, is_enabled: event.target.checked }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
+                            />
+                            <input
+                              type="text"
+                              value={field.label}
+                              onChange={(event) =>
+                                setJobDetailFields((prev) =>
+                                  prev.map((item) =>
+                                    item.field_key === field.field_key
+                                      ? { ...item, label: event.target.value }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="min-w-0 flex-1 rounded-control border border-card-border bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              placeholder="ชื่อช่อง"
+                            />
+                          </label>
+                          <span className="rounded-full border border-card-border bg-paper-tint px-2 py-1 text-label text-ink-300">
+                            {field.field_type === "dimension" ? "ขนาด" : "ข้อความ"}
+                          </span>
+                          {field.field_type === "dimension" && (
+                            <Select
+                              value={field.default_unit || "มม."}
+                              onChange={(e) =>
+                                setJobDetailFields((prev) =>
+                                  prev.map((f) =>
+                                    f.field_key === field.field_key
+                                      ? { ...f, default_unit: e.target.value }
+                                      : f,
+                                  ),
+                                )
+                              }
+                              className="rounded-control border border-card-border bg-white px-2 py-1 text-label"
+                            >
+                              <option value="มม.">มม.</option>
+                              <option value="ซม.">ซม.</option>
+                              <option value="นิ้ว">นิ้ว</option>
+                              <option value="เมตร">เมตร</option>
+                            </Select>
+                          )}
+                          <div className="flex items-center rounded-control border border-card-border bg-white">
+                            <button
+                              type="button"
+                              onClick={() => moveJobDetailField(field.field_key, -1)}
+                              disabled={index === 0}
+                              className="flex h-11 w-11 items-center justify-center rounded-l-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white md:h-8 md:w-8"
+                              aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ขึ้น`}
+                              title="เลื่อนขึ้น"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </button>
+                            <div className="h-5 w-px bg-line" />
+                            <button
+                              type="button"
+                              onClick={() => moveJobDetailField(field.field_key, 1)}
+                              disabled={index === jobDetailFields.length - 1}
+                              className="flex h-11 w-11 items-center justify-center rounded-r-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white md:h-8 md:w-8"
+                              aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ลง`}
+                              title="เลื่อนลง"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {field.is_custom && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setJobDetailFields((prev) =>
+                                  prev.filter((item) => item.field_key !== field.field_key),
+                                );
+                                setJobDetailPresets((prev) => {
+                                  const next = { ...prev };
+                                  delete next[field.field_key];
+                                  return next;
+                                });
+                              }}
+                              className="inline-flex min-h-11 items-center rounded-control border border-danger-border px-2.5 py-1.5 text-label font-medium text-danger-text transition-colors hover:bg-danger-soft md:min-h-0"
+                            >
+                              ลบช่อง
+                            </button>
+                          )}
+                        </div>
+
+                        {field.field_type === "dimension" && (
+                          <p className="text-label leading-5 text-ink-300">
+                            ช่องขนาดใช้รูปแบบกว้าง x สูง และไม่มีตัวเลือกเริ่มต้น
+                          </p>
+                        )}
+
+                        {field.field_type === "text" && (
+                          <>
+                            {(jobDetailPresets[field.field_key] || []).length > 0 && (
+                              <div className="mb-2 flex flex-wrap gap-1.5">
+                                {(jobDetailPresets[field.field_key] || []).map((value) => (
+                                  <span
+                                    key={value}
+                                    className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-label text-ink-600"
+                                  >
+                                    {value}
+                                    <button
+                                      type="button"
+                                      onClick={() => removePreset(field.field_key, value)}
+                                      className="-m-2.5 flex h-4 w-4 items-center justify-center p-2.5 text-ink-400 transition-colors hover:text-danger-text"
+                                      aria-label={`ลบ ${value}`}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={newPresetValues[field.field_key] || ""}
+                                onChange={(event) =>
+                                  setNewPresetValues((prev) => ({
+                                    ...prev,
+                                    [field.field_key]: event.target.value,
+                                  }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    addPreset(field.field_key);
+                                  }
+                                }}
+                                placeholder={field.placeholder}
+                                className="min-h-11 min-w-0 flex-1 rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 md:min-h-0"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => addPreset(field.field_key)}
+                                className="inline-flex min-h-11 shrink-0 items-center rounded-control border border-card-border bg-white px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:bg-paper-field md:min-h-0"
+                              >
+                                เพิ่ม
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setJobDetailFields((prev) => [
+                            ...prev,
+                            {
+                              ...createCustomJobDetailField("ช่องใหม่", "text"),
+                              sort_order: prev.length,
+                            },
+                          ])
+                        }
+                        className="rounded-control border border-dashed border-line bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 transition-colors hover:border-primary hover:bg-primary-soft"
+                      >
+                        + เพิ่มช่องข้อความ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setJobDetailFields((prev) => [
+                            ...prev,
+                            {
+                              ...createCustomJobDetailField("ช่องใหม่", "dimension"),
+                              sort_order: prev.length,
+                            },
+                          ])
+                        }
+                        className="rounded-control border border-dashed border-line bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 transition-colors hover:border-primary hover:bg-primary-soft"
+                      >
+                        + เพิ่มช่องขนาด
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {itemType === "product" && (
-        <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
-          <div className="text-label font-semibold text-ink-300">
-            สต็อก
-          </div>
-          {!isEdit && (
-            <>
-              <StockInitialField
-                value={initialStock}
-                onChange={(value) => setInitialStock(String(value))}
-                baseUnit={baseUnit}
-                cartonUnit={cartonEnabled ? cartonUnit : null}
-                qtyPerCarton={
-                  cartonEnabled ? parseFloat(String(qtyPerCarton)) || 0 : 0
-                }
-              />
+          {itemType === "product" && (
+            <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
+              <div className="text-label font-semibold text-ink-300">สต็อก</div>
+              {!isEdit && (
+                <>
+                  <StockInitialField
+                    value={initialStock}
+                    onChange={(value) => setInitialStock(String(value))}
+                    baseUnit={baseUnit}
+                    cartonUnit={cartonEnabled ? cartonUnit : null}
+                    qtyPerCarton={cartonEnabled ? parseFloat(String(qtyPerCarton)) || 0 : 0}
+                  />
+                  <div>
+                    <label className="block text-body text-ink-900 mb-1">
+                      ต้นทุนเริ่มต้นต่อ {baseUnit}
+                    </label>
+                    <NumericInput
+                      value={initialCost === "" ? null : parseFloat(initialCost) || 0}
+                      maxFractionDigits={2}
+                      minFractionDigits={2}
+                      onTextChange={(text) => {
+                        setInitialCost(text);
+                        setErrors((prev) => ({ ...prev, initialCost: "" }));
+                      }}
+                      placeholder="เช่น 45.00"
+                    />
+                    <p className="text-label text-ink-300 mt-1">
+                      ใช้คำนวณต้นทุนเฉลี่ยและมูลค่าสต็อกเริ่มต้น
+                    </p>
+                    {errors.initialCost && (
+                      <p className="text-label text-danger mt-1">{errors.initialCost}</p>
+                    )}
+                  </div>
+                </>
+              )}
               <div>
-                <label className="block text-body text-ink-900 mb-1">
-                  ต้นทุนเริ่มต้นต่อ {baseUnit}
-                </label>
-                <NumericInput
-                  value={initialCost === "" ? null : parseFloat(initialCost) || 0}
-                  maxFractionDigits={2}
-                  minFractionDigits={2}
-                  onTextChange={(text) => {
-                    setInitialCost(text);
-                    setErrors((prev) => ({ ...prev, initialCost: "" }));
-                  }}
-                  placeholder="เช่น 45.00"
-                />
+                <label className="block text-body text-ink-900 mb-1">แจ้งเตือนเมื่อเหลือ</label>
+                <div className="flex items-center gap-2">
+                  <div className="w-24">
+                    <NumericInput
+                      value={lowStockThreshold === "" ? null : parseFloat(lowStockThreshold) || 0}
+                      maxFractionDigits={0}
+                      onTextChange={setLowStockThreshold}
+                    />
+                  </div>
+                  <span className="text-body text-ink-300">{baseUnit}</span>
+                </div>
                 <p className="text-label text-ink-300 mt-1">
-                  ใช้คำนวณต้นทุนเฉลี่ยและมูลค่าสต็อกเริ่มต้น
+                  ระบบจะแสดงเตือนเมื่อสต็อกเหลือน้อยกว่าจำนวนนี้
                 </p>
-                {errors.initialCost && (
-                  <p className="text-label text-danger mt-1">
-                    {errors.initialCost}
-                  </p>
-                )}
               </div>
-            </>
-          )}
-          <div>
-            <label className="block text-body text-ink-900 mb-1">
-              แจ้งเตือนเมื่อเหลือ
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="w-24">
-                <NumericInput
-                  value={lowStockThreshold === "" ? null : parseFloat(lowStockThreshold) || 0}
-                  maxFractionDigits={0}
-                  onTextChange={setLowStockThreshold}
-                />
-              </div>
-              <span className="text-body text-ink-300">{baseUnit}</span>
             </div>
-            <p className="text-label text-ink-300 mt-1">
-              ระบบจะแสดงเตือนเมื่อสต็อกเหลือน้อยกว่าจำนวนนี้
-            </p>
-          </div>
-        </div>
-      )}
-
+          )}
         </>
       )}
 

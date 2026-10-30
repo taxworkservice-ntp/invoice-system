@@ -19,6 +19,7 @@ import {
   type WorkspacePermissions,
 } from "../../../lib/permissions";
 import type { ClientMemberRole, ClientMemberStatus } from "../../../types";
+import { Select } from "../../../components/ui/Select";
 
 interface TeamMember {
   id: string;
@@ -114,7 +115,9 @@ function summarizeAuditChange(entry: AuditEntry): string {
     const changed: string[] = [];
     for (const key of EDITABLE_PERMISSION_KEYS) {
       if (Boolean(beforePermissions[key]) !== Boolean(afterPermissions[key])) {
-        changed.push(`${PERMISSION_LABELS.get(key) || key}: ${beforePermissions[key] ? "เปิด" : "ปิด"} → ${afterPermissions[key] ? "เปิด" : "ปิด"}`);
+        changed.push(
+          `${PERMISSION_LABELS.get(key) || key}: ${beforePermissions[key] ? "เปิด" : "ปิด"} → ${afterPermissions[key] ? "เปิด" : "ปิด"}`,
+        );
       }
     }
     return changed.length > 0 ? changed.join(" · ") : "ไม่มีการเปลี่ยนแปลงสิทธิ์";
@@ -122,7 +125,8 @@ function summarizeAuditChange(entry: AuditEntry): string {
 
   if (entry.action === "role.change") {
     const parts: string[] = [];
-    if (before.role !== after.role) parts.push(`บทบาท: ${before.role ?? "-"} → ${after.role ?? "-"}`);
+    if (before.role !== after.role)
+      parts.push(`บทบาท: ${before.role ?? "-"} → ${after.role ?? "-"}`);
     if (before.custom_role_id !== after.custom_role_id) parts.push("เปลี่ยนบทบาทกำหนดเอง");
     return parts.join(" · ") || "เปลี่ยนบทบาท";
   }
@@ -156,12 +160,16 @@ function PermissionToggle({
   const meta = PERMISSION_GROUPS.find((group) => group.key === permissionKey);
   if (!meta) return null;
   return (
-    <label className={`flex items-start justify-between gap-3 rounded-control border border-card-border p-3 ${disabled ? "opacity-60" : "cursor-pointer hover:bg-paper-tint"}`}>
+    <label
+      className={`flex items-start justify-between gap-3 rounded-control border border-card-border p-3 ${disabled ? "opacity-60" : "cursor-pointer hover:bg-paper-tint"}`}
+    >
       <span>
         <span className="block text-body font-medium text-ink-900">{meta.label}</span>
         <span className="mt-1 block text-label leading-5 text-ink-500">{meta.description}</span>
       </span>
-      <span className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full ${checked ? "bg-primary" : "bg-line"}`}>
+      <span
+        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full ${checked ? "bg-primary" : "bg-line"}`}
+      >
         <input
           type="checkbox"
           checked={checked}
@@ -169,7 +177,9 @@ function PermissionToggle({
           onChange={(event) => onChange(event.target.checked)}
           className="sr-only"
         />
-        <span className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+        <span
+          className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`}
+        />
       </span>
     </label>
   );
@@ -186,9 +196,7 @@ function PermissionSections({
     <div className="space-y-5">
       {PERMISSION_SECTIONS.map((section) => (
         <div key={section.title}>
-          <div className="mb-2 text-label font-semibold text-ink-500">
-            {section.title}
-          </div>
+          <div className="mb-2 text-label font-semibold text-ink-500">{section.title}</div>
           <div className="space-y-2">
             {section.keys.map((key) => (
               <PermissionToggle
@@ -238,7 +246,9 @@ export default function SettingsTeamPage() {
       setMembers(memberResult.members);
       setRoles(roleResult.roles);
       setSelectedMemberId((current) => current ?? memberResult.members[0]?.id ?? null);
-      setMemberDraft((current) => current ?? draftFor(memberResult.members[0] ?? null, roleResult.roles));
+      setMemberDraft(
+        (current) => current ?? draftFor(memberResult.members[0] ?? null, roleResult.roles),
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "โหลดข้อมูลทีมไม่สำเร็จ");
     } finally {
@@ -258,7 +268,12 @@ export default function SettingsTeamPage() {
   function draftFor(member: TeamMember | null, roleList: WorkspaceRole[]): EditableDraft {
     const draft = emptyDraft();
     if (!member) return draft;
-    const overrides = member.permissions ?? (member.custom_role_id ? roleList.find((role) => role.id === member.custom_role_id)?.permissions : null) ?? null;
+    const overrides =
+      member.permissions ??
+      (member.custom_role_id
+        ? roleList.find((role) => role.id === member.custom_role_id)?.permissions
+        : null) ??
+      null;
     const effective = getWorkspacePermissions(member.role, overrides);
     for (const key of EDITABLE_PERMISSION_KEYS) draft[key] = Boolean(effective[key]);
     return draft;
@@ -277,7 +292,11 @@ export default function SettingsTeamPage() {
         method: "PATCH",
         body: JSON.stringify({ memberId: selectedMemberId, permissions: memberDraft }),
       });
-      setMembers((current) => current.map((member) => member.id === selectedMemberId ? { ...member, permissions: { ...memberDraft } } : member));
+      setMembers((current) =>
+        current.map((member) =>
+          member.id === selectedMemberId ? { ...member, permissions: { ...memberDraft } } : member,
+        ),
+      );
       toast.success("บันทึกสิทธิ์เรียบร้อยแล้ว");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "บันทึกสิทธิ์ไม่สำเร็จ");
@@ -296,7 +315,9 @@ export default function SettingsTeamPage() {
         body: JSON.stringify({ memberId: member.id, ...patch }),
       });
       const updated = result.member;
-      setMembers((current) => current.map((item) => item.id === member.id ? { ...item, ...updated } : item));
+      setMembers((current) =>
+        current.map((item) => (item.id === member.id ? { ...item, ...updated } : item)),
+      );
       if (selectedMemberId === member.id) {
         setMemberDraft(draftFor({ ...member, ...updated }, roles));
       }
@@ -339,7 +360,11 @@ export default function SettingsTeamPage() {
       if (editingRoleId) {
         await apiFetch("/api/client/roles", {
           method: "PATCH",
-          body: JSON.stringify({ roleId: editingRoleId, name: roleNameDraft.trim(), permissions: rolePermissionDraft }),
+          body: JSON.stringify({
+            roleId: editingRoleId,
+            name: roleNameDraft.trim(),
+            permissions: rolePermissionDraft,
+          }),
         });
       } else {
         await apiFetch("/api/client/roles", {
@@ -365,7 +390,11 @@ export default function SettingsTeamPage() {
         body: JSON.stringify({ roleId: role.id }),
       });
       setRoles((current) => current.filter((item) => item.id !== role.id));
-      setMembers((current) => current.map((item) => item.custom_role_id === role.id ? { ...item, custom_role_id: null } : item));
+      setMembers((current) =>
+        current.map((item) =>
+          item.custom_role_id === role.id ? { ...item, custom_role_id: null } : item,
+        ),
+      );
       setDeleteRoleTarget(null);
       toast.success("ลบบทบาทเรียบร้อยแล้ว");
     } catch (error) {
@@ -405,7 +434,7 @@ export default function SettingsTeamPage() {
           title="ทีมงานและสิทธิ์"
           description="สมาชิกใหม่เริ่มต้นโดยไม่มีสิทธิ์ใดๆ กำหนดบทบาทหรือเปิดสิทธิ์ให้แต่ละคนเอง"
           titleRight={
-            <div className="flex gap-1 rounded-control bg-draft-bg p-1">
+            <div className="flex gap-1 rounded-control bg-ink-50 p-1">
               {tabs.map((item) => (
                 <button
                   key={item.key}
@@ -420,9 +449,15 @@ export default function SettingsTeamPage() {
           }
         />
 
-        {loading ? <SettingsRowsSkeleton /> : tab === "members" ? (
+        {loading ? (
+          <SettingsRowsSkeleton />
+        ) : tab === "members" ? (
           members.length === 0 ? (
-            <Card><p className="text-body text-ink-500">ยังไม่มีสมาชิกในทีม — เพิ่มสมาชิกได้จากผู้ดูแลระบบ</p></Card>
+            <Card>
+              <p className="text-body text-ink-500">
+                ยังไม่มีสมาชิกในทีม — เพิ่มสมาชิกได้จากผู้ดูแลระบบ
+              </p>
+            </Card>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
               <Card className="h-fit p-2">
@@ -433,10 +468,15 @@ export default function SettingsTeamPage() {
                       key={member.id}
                       type="button"
                       onClick={() => selectMember(member)}
-                      className={`w-full rounded-control px-3 py-2 text-left ${selectedMemberId === member.id ? "bg-blue-50 text-primary" : "hover:bg-paper-field"}`}
+                      className={`w-full rounded-control px-3 py-2 text-left ${selectedMemberId === member.id ? "bg-primary-soft text-primary" : "hover:bg-paper-field"}`}
                     >
-                      <div className="truncate text-body font-medium">{member.email || member.member_user_id}</div>
-                      <div className="mt-0.5 text-label text-ink-500">{memberRoleLabel(member)}{member.status === "disabled" ? " · ปิดใช้งาน" : ""}</div>
+                      <div className="truncate text-body font-medium">
+                        {member.email || member.member_user_id}
+                      </div>
+                      <div className="mt-0.5 text-label text-ink-500">
+                        {memberRoleLabel(member)}
+                        {member.status === "disabled" ? " · ปิดใช้งาน" : ""}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -446,17 +486,29 @@ export default function SettingsTeamPage() {
                 <Card>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-body font-semibold text-ink-900">สิทธิ์ของ {selectedMember.email}</h2>
-                      <p className="mt-1 text-label text-ink-500">บทบาท: {memberRoleLabel(selectedMember)}</p>
+                      <h2 className="text-body font-semibold text-ink-900">
+                        สิทธิ์ของ {selectedMember.email}
+                      </h2>
+                      <p className="mt-1 text-label text-ink-500">
+                        บทบาท: {memberRoleLabel(selectedMember)}
+                      </p>
                     </div>
-                    <Button variant="secondary" size="sm" onClick={() => setMemberDraft(emptyDraft())}>ล้างทั้งหมด</Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setMemberDraft(emptyDraft())}
+                    >
+                      ล้างทั้งหมด
+                    </Button>
                   </div>
 
                   <div className="mt-4">
                     <label className="mb-1 block text-label font-medium text-ink-600">บทบาท</label>
-                    <select
+                    <Select
                       value={selectedMember.custom_role_id ?? `base:${selectedMember.role}`}
-                      onChange={(event) => void changeMemberRole(selectedMember, event.target.value)}
+                      onChange={(event) =>
+                        void changeMemberRole(selectedMember, event.target.value)
+                      }
                       className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body"
                     >
                       <optgroup label="บทบาทพื้นฐาน">
@@ -466,23 +518,37 @@ export default function SettingsTeamPage() {
                       {roles.length > 0 && (
                         <optgroup label="บทบาทกำหนดเอง">
                           {roles.map((role) => (
-                            <option key={role.id} value={role.id}>{role.name}</option>
+                            <option key={role.id} value={role.id}>
+                              {role.name}
+                            </option>
                           ))}
                         </optgroup>
                       )}
-                    </select>
+                    </Select>
                     {selectedMember.custom_role_id && (
-                      <p className="mt-1 text-label text-amber-600">การบันทึกสิทธิ์ด้านล่างจะมีความสำคัญเหนือบทบาทที่เลือก</p>
+                      <p className="mt-1 text-label text-warning-text">
+                        การบันทึกสิทธิ์ด้านล่างจะมีความสำคัญเหนือบทบาทที่เลือก
+                      </p>
                     )}
                   </div>
 
                   <div className="mt-5">
                     <PermissionSections
                       draft={memberDraft}
-                      onToggle={(key, checked) => setMemberDraft((current) => current ? { ...current, [key]: checked } : current)}
+                      onToggle={(key, checked) =>
+                        setMemberDraft((current) =>
+                          current ? { ...current, [key]: checked } : current,
+                        )
+                      }
                     />
                   </div>
-                  <Button className="mt-4 w-full justify-center" onClick={saveMemberPermissions} loading={saving}>บันทึกสิทธิ์</Button>
+                  <Button
+                    className="mt-4 w-full justify-center"
+                    onClick={saveMemberPermissions}
+                    loading={saving}
+                  >
+                    บันทึกสิทธิ์
+                  </Button>
                 </Card>
               )}
             </div>
@@ -493,15 +559,21 @@ export default function SettingsTeamPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-body font-semibold text-ink-900">บทบาทกำหนดเอง</h2>
-                  <p className="mt-1 text-label leading-5 text-ink-500">สร้างชุดสิทธิ์ที่ใช้บ่อยเป็นบทบาท แล้วมอบหมายให้สมาชิกได้ทันที</p>
+                  <p className="mt-1 text-label leading-5 text-ink-500">
+                    สร้างชุดสิทธิ์ที่ใช้บ่อยเป็นบทบาท แล้วมอบหมายให้สมาชิกได้ทันที
+                  </p>
                 </div>
-                <Button size="sm" onClick={() => openRoleBuilder(null)}>+ สร้างบทบาท</Button>
+                <Button size="sm" onClick={() => openRoleBuilder(null)}>
+                  + สร้างบทบาท
+                </Button>
               </div>
             </Card>
 
             {roles.length === 0 ? (
               <Card>
-                <p className="text-body text-ink-500">ยังไม่มีบทบาทกำหนดเอง — เริ่มจากเทมเพลตตัวอย่างหรือกำหนดเองทั้งหมดได้</p>
+                <p className="text-body text-ink-500">
+                  ยังไม่มีบทบาทกำหนดเอง — เริ่มจากเทมเพลตตัวอย่างหรือกำหนดเองทั้งหมดได้
+                </p>
               </Card>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
@@ -512,21 +584,41 @@ export default function SettingsTeamPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="text-body font-semibold text-ink-900">{role.name}</h3>
-                          <p className="mt-0.5 text-label text-ink-500">{role.member_count} สมาชิก · {granted.length} สิทธิ์</p>
+                          <p className="mt-0.5 text-label text-ink-500">
+                            {role.member_count} สมาชิก · {granted.length} สิทธิ์
+                          </p>
                         </div>
                         <div className="flex shrink-0 gap-1">
-                          <Button variant="secondary" size="sm" onClick={() => openRoleBuilder(role)}>แก้ไข</Button>
-                          <Button variant="danger" size="sm" onClick={() => setDeleteRoleTarget(role)} disabled={role.member_count > 0}>ลบ</Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => openRoleBuilder(role)}
+                          >
+                            แก้ไข
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => setDeleteRoleTarget(role)}
+                            disabled={role.member_count > 0}
+                          >
+                            ลบ
+                          </Button>
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {granted.length === 0 ? (
                           <span className="text-label text-ink-400">ยังไม่เปิดสิทธิ์ใดๆ</span>
-                        ) : granted.map((key) => (
-                          <span key={key} className="rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
-                            {PERMISSION_LABELS.get(key) || key}
-                          </span>
-                        ))}
+                        ) : (
+                          granted.map((key) => (
+                            <span
+                              key={key}
+                              className="rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text"
+                            >
+                              {PERMISSION_LABELS.get(key) || key}
+                            </span>
+                          ))
+                        )}
                       </div>
                     </Card>
                   );
@@ -544,7 +636,9 @@ export default function SettingsTeamPage() {
                 {audit.map((entry) => (
                   <div key={entry.id} className="py-3">
                     <div className="flex flex-wrap items-center gap-2 text-label">
-                      <span className="font-semibold text-ink-900">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
+                      <span className="font-semibold text-ink-900">
+                        {AUDIT_ACTION_LABELS[entry.action] || entry.action}
+                      </span>
                       <span className="text-ink-500">{entry.actor_email || "ระบบ"}</span>
                       {entry.target_email && entry.target_email !== entry.actor_email && (
                         <span className="text-ink-500">→ {entry.target_email}</span>
@@ -556,7 +650,9 @@ export default function SettingsTeamPage() {
                         })()}
                       </span>
                     </div>
-                    <p className="mt-1 text-label leading-5 text-ink-500">{summarizeAuditChange(entry)}</p>
+                    <p className="mt-1 text-label leading-5 text-ink-500">
+                      {summarizeAuditChange(entry)}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -567,7 +663,9 @@ export default function SettingsTeamPage() {
 
       <Modal
         open={roleModalOpen}
-        onClose={() => { if (!saving) setRoleModalOpen(false); }}
+        onClose={() => {
+          if (!saving) setRoleModalOpen(false);
+        }}
         title={editingRoleId ? "แก้ไขบทบาท" : "สร้างบทบาทใหม่"}
         size="lg"
       >
@@ -584,43 +682,57 @@ export default function SettingsTeamPage() {
             </div>
             {!editingRoleId && (
               <div className="sm:w-56">
-                <label className="mb-1 block text-label font-medium text-ink-600">เริ่มจากเทมเพลต</label>
-                <select
+                <label className="mb-1 block text-label font-medium text-ink-600">
+                  เริ่มจากเทมเพลต
+                </label>
+                <Select
                   className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body"
                   defaultValue="blank"
                   onChange={(event) => applyRoleTemplate(event.target.value)}
                 >
                   {ROLE_TEMPLATES.map((template) => (
-                    <option key={template.key} value={template.key}>{template.label}</option>
+                    <option key={template.key} value={template.key}>
+                      {template.label}
+                    </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
           </div>
 
           <PermissionSections
             draft={rolePermissionDraft}
-            onToggle={(key, checked) => setRolePermissionDraft((current) => ({ ...current, [key]: checked }))}
+            onToggle={(key, checked) =>
+              setRolePermissionDraft((current) => ({ ...current, [key]: checked }))
+            }
           />
 
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setRoleModalOpen(false)} disabled={saving}>ยกเลิก</Button>
-            <Button onClick={saveRole} loading={saving}>บันทึกบทบาท</Button>
+            <Button variant="secondary" onClick={() => setRoleModalOpen(false)} disabled={saving}>
+              ยกเลิก
+            </Button>
+            <Button onClick={saveRole} loading={saving}>
+              บันทึกบทบาท
+            </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal
-        open={!!deleteRoleTarget}
-        onClose={() => setDeleteRoleTarget(null)}
-        title="ลบบทบาท"
-      >
+      <Modal open={!!deleteRoleTarget} onClose={() => setDeleteRoleTarget(null)} title="ลบบทบาท">
         <p className="text-body leading-6 text-ink-700">
-          ต้องการลบบทบาท “{deleteRoleTarget?.name}” หรือไม่? สมาชิกที่ใช้บทบาทนี้จะกลับไปใช้บทบาทพื้นฐาน
+          ต้องการลบบทบาท “{deleteRoleTarget?.name}” หรือไม่?
+          สมาชิกที่ใช้บทบาทนี้จะกลับไปใช้บทบาทพื้นฐาน
         </p>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setDeleteRoleTarget(null)}>ยกเลิก</Button>
-          <Button variant="danger" onClick={() => deleteRoleTarget && void deleteRole(deleteRoleTarget)}>ลบบทบาท</Button>
+          <Button variant="secondary" onClick={() => setDeleteRoleTarget(null)}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => deleteRoleTarget && void deleteRole(deleteRoleTarget)}
+          >
+            ลบบทบาท
+          </Button>
         </div>
       </Modal>
     </AppShell>
