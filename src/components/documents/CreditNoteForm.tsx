@@ -22,7 +22,13 @@ import { useDocDate } from "../YearEraProvider";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
-import { FormStep } from "./FormStep";
+import {
+  FormStep,
+  FormProgress,
+  FormStepRail,
+  useScrollSpy,
+  type FormProgressStep,
+} from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 
 interface CreditNoteFormProps {
@@ -51,7 +57,11 @@ function uid() {
   return `cn_${++idCounter}_${Date.now()}`;
 }
 
-export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: CreditNoteFormProps) {
+export function CreditNoteForm({
+  dealId,
+  documentId,
+  docType = "credit_note",
+}: CreditNoteFormProps) {
   const navigate = useNavigate();
   const docDate = useDocDate();
   const { profile } = useAuth();
@@ -204,7 +214,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           quantity: l.quantity,
           discountPercent: l.discount_percent || 0,
           lineTotal: l.line_total,
-        }))
+        })),
       );
     }
 
@@ -243,7 +253,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           quantity: l.quantity,
           discountPercent: l.discount_percent || 0,
           lineTotal: l.line_total,
-        }))
+        })),
       );
     }
   }, [refInvoiceId, isEditing]);
@@ -297,7 +307,11 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
     setTaskName((current) => current || ref.task_name || "");
   }, [refInvoiceId, paidInvoices, isEditing]);
 
-  function updateItem(key: string, field: "quantity" | "unitPrice" | "unit" | "discountPercent", value: string) {
+  function updateItem(
+    key: string,
+    field: "quantity" | "unitPrice" | "unit" | "discountPercent",
+    value: string,
+  ) {
     setItems((prev) =>
       prev.map((it) => {
         if (it.key !== key) return it;
@@ -312,7 +326,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           discount_percent: updated.discountPercent,
         }).lineTotal;
         return updated;
-      })
+      }),
     );
   }
 
@@ -389,7 +403,13 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
 
     try {
       const docNumber = !isEditing
-        ? await resolveDocNumber(userId, docType, effectiveIssueDate, docNumberOverride, docId || undefined)
+        ? await resolveDocNumber(
+            userId,
+            docType,
+            effectiveIssueDate,
+            docNumberOverride,
+            docId || undefined,
+          )
         : null;
 
       const pLines = items.map((it, idx) => {
@@ -463,6 +483,12 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
     }
   }
 
+  const spyActive = useScrollSpy([
+    "credit-step-customer",
+    "credit-step-lines",
+    "credit-step-summary",
+  ]);
+
   if (loading) {
     return (
       <AppShell title={isEditing ? `แก้ไข${docTitleTh}` : issueVerbTh} showBack>
@@ -474,330 +500,403 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
   if (error && !customer) {
     return (
       <AppShell title={issueVerbTh} showBack>
-        <p className="text-body text-red-500">{error}</p>
+        <p className="text-body text-danger-text">{error}</p>
       </AppShell>
     );
   }
 
+  const step1Done = Boolean(customer && issueDate);
+  const step2Done = items.length > 0;
+  const guideSteps: FormProgressStep[] = [
+    {
+      label: "ลูกค้า",
+      state: step1Done ? "done" : "current",
+      targetId: "credit-step-customer",
+    },
+    {
+      label: "รายการ",
+      state: step2Done ? "done" : step1Done ? "current" : "todo",
+      targetId: "credit-step-lines",
+    },
+    {
+      label: "สรุป",
+      state: step2Done ? "current" : "todo",
+      targetId: "credit-step-summary",
+    },
+  ];
+
+  const scrollToId = (id: string) => {
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 30);
+  };
+
   return (
     <AppShell title={isEditing ? `แก้ไข${docTitleTh}` : issueVerbTh} showBack>
       <div className="space-y-4">
-        <FormStep number={1} title="ลูกค้าและการอ้างอิง">
-          <div className="space-y-3">
-            <div>
-              <span className="text-label text-ink-300">ลูกค้า</span>
-              <p className="text-body font-medium">{customer?.name || "-"}</p>
-            </div>
-
-            <div className="rounded-card border border-line-soft bg-paper-field px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
+        <div className="lg:hidden">
+          <FormProgress steps={guideSteps} onSelect={scrollToId} />
+        </div>
+        <div className="lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-4">
+          <FormStepRail steps={guideSteps} onSelect={scrollToId} activeId={spyActive} />
+          <div className="min-w-0 space-y-4">
+            <FormStep id="credit-step-customer" number={1} title="ลูกค้าและการอ้างอิง">
+              <div className="space-y-3">
                 <div>
-                  <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
-                  <div className="mt-1 text-body font-semibold text-ink-900">{docDate.date(issueDate)}</div>
+                  <span className="text-label text-ink-300">ลูกค้า</span>
+                  <p className="text-body font-medium">{customer?.name || "-"}</p>
                 </div>
-                {!isReadOnly && (
-                  <div className="flex gap-2">
-                    {issueDate !== todayString() && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIssueDate(todayString());
-                          setShowIssueDatePicker(false);
-                        }}
-                        className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
-                      >
-                        ใช้วันนี้
-                      </button>
+
+                <div className="rounded-card border border-line-soft bg-paper-field px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
+                      <div className="mt-1 text-body font-semibold text-ink-900">
+                        {docDate.date(issueDate)}
+                      </div>
+                    </div>
+                    {!isReadOnly && (
+                      <div className="flex gap-2">
+                        {issueDate !== todayString() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIssueDate(todayString());
+                              setShowIssueDatePicker(false);
+                            }}
+                            className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
+                          >
+                            ใช้วันนี้
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setShowIssueDatePicker((prev) => !prev)}
+                          className="rounded-control border border-line bg-white px-3 py-2 text-label font-medium text-ink-900 transition-colors hover:bg-paper-field"
+                        >
+                          {showIssueDatePicker || issueDate !== todayString()
+                            ? "เปลี่ยนวันที่"
+                            : "ออกย้อนหลัง"}
+                        </button>
+                      </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setShowIssueDatePicker((prev) => !prev)}
-                      className="rounded-control border border-line bg-white px-3 py-2 text-label font-medium text-ink-900 transition-colors hover:bg-paper-field"
+                  </div>
+                  {(showIssueDatePicker || issueDate !== todayString()) && !isReadOnly && (
+                    <div className="mt-3 border-t border-line-faint pt-3">
+                      <DateInput
+                        id="creditNoteIssueDate"
+                        value={issueDate}
+                        max={todayString()}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {!isEditing && paidInvoices.length > 0 && (
+                  <>
+                    <Select
+                      label="อ้างอิงใบแจ้งหนี้เดิม"
+                      value={refInvoiceId}
+                      onChange={(e) => setRefInvoiceId(e.target.value)}
                     >
-                      {showIssueDatePicker || issueDate !== todayString() ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
-                    </button>
+                      {paidInvoices.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.doc_number} — ฿
+                          {d.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                        </option>
+                      ))}
+                    </Select>
+                    {!isDebit &&
+                      (() => {
+                        const refInvoice = paidInvoices.find((d) => d.id === refInvoiceId);
+                        const invoiceTotal = Number(refInvoice?.total_amount || 0);
+                        if (!refInvoice || invoiceTotal <= 0) return null;
+                        const remaining = invoiceTotal - existingCreditTotal;
+                        return (
+                          <p
+                            className={`text-label leading-5 ${remaining <= 0 ? "text-warning-text" : "text-ink-500"}`}
+                          >
+                            {remaining > 0
+                              ? `วงเงินคงเหลือที่ลดได้จากใบนี้: ฿${remaining.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`
+                              : "ใบแจ้งหนี้นี้ถูกลดหนี้ครบวงเงินแล้ว"}
+                          </p>
+                        );
+                      })()}
+                  </>
+                )}
+
+                {isEditing && refInvoiceId && (
+                  <div>
+                    <span className="text-label text-ink-300">อ้างอิง</span>
+                    <p className="text-body text-ink-300">
+                      {refInvoiceLines.length > 0
+                        ? paidInvoices.find((d) => d.id === refInvoiceId)?.doc_number ||
+                          refInvoiceId
+                        : refInvoiceId}
+                    </p>
                   </div>
                 )}
               </div>
-              {(showIssueDatePicker || issueDate !== todayString()) && !isReadOnly && (
-                <div className="mt-3 border-t border-line-faint pt-3">
-                  <DateInput
-                    id="creditNoteIssueDate"
-                    value={issueDate}
-                    max={todayString()}
-                    onChange={(e) => setIssueDate(e.target.value)}
+            </FormStep>
+
+            {paidInvoices.length === 0 && !isEditing && (
+              <Card>
+                <p className="text-body text-ink-300 text-center py-4">
+                  ไม่มีเอกสารที่ชำระแล้วในงานขายนี้
+                </p>
+              </Card>
+            )}
+
+            <FormStep id="credit-step-lines" number={2} title="รายการ">
+              <div className="text-label font-semibold text-ink-300 mb-3">รายการ</div>
+
+              {items.length === 0 ? (
+                <p className="text-body text-ink-300 text-center py-4">
+                  ยังไม่มีรายการ — เลือกอ้างอิงใบแจ้งหนี้ด้านบนหรือเพิ่มรายการจากแค็ตตาล็อก
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-label">
+                    <thead>
+                      <tr className="border-b border-card-border text-ink-300">
+                        <th className="text-left py-2 pr-1 w-8">#</th>
+                        <th className="text-left py-2 pr-2">รายการ</th>
+                        <th className="text-right py-2 pr-2 w-16">จำนวน</th>
+                        <th className="text-right py-2 pr-2 w-20">ราคา/หน่วย</th>
+                        <th className="text-right py-2 pr-2 w-20">รวม</th>
+                        {!isReadOnly && <th className="w-6" />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((it, idx) => (
+                        <tr key={it.key} className="border-b border-card-border/50">
+                          <td className="py-2 pr-1 text-ink-300">{idx + 1}</td>
+                          <td className="py-2 pr-2">
+                            <div className="text-body font-medium truncate max-w-[160px]">
+                              {it.itemName}
+                            </div>
+                            {it.lineNote ? (
+                              <div className="mt-0.5 text-label text-ink-300">{it.lineNote}</div>
+                            ) : null}
+                            <div className="text-label text-ink-300">{it.unit}</div>
+                          </td>
+                          <td className="py-2 pr-2">
+                            {isReadOnly ? (
+                              <span className="text-right block">{it.quantity}</span>
+                            ) : (
+                              <NumericInput
+                                value={it.quantity}
+                                maxFractionDigits={3}
+                                onTextChange={(text) => updateItem(it.key, "quantity", text)}
+                                className="text-label text-right px-1 py-1"
+                              />
+                            )}
+                          </td>
+                          <td className="py-2 pr-2">
+                            {isReadOnly ? (
+                              <span className="text-right block">
+                                {it.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <NumericInput
+                                value={it.unitPrice}
+                                maxFractionDigits={2}
+                                minFractionDigits={2}
+                                onTextChange={(text) => updateItem(it.key, "unitPrice", text)}
+                                className="text-label text-right px-1 py-1"
+                              />
+                            )}
+                          </td>
+                          <td className="py-2 pr-2 text-right font-medium">
+                            {it.lineTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                          </td>
+                          {!isReadOnly && (
+                            <td className="py-2 text-center">
+                              <button
+                                onClick={() => removeItem(it.key)}
+                                className="text-danger-text hover:text-danger-strong text-label"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {!isReadOnly && (
+                <div className="mt-3 flex items-center gap-2">
+                  <CatalogAutocomplete
+                    items={catalogItems}
+                    value={addItemInput}
+                    onChange={setAddItemInput}
+                    onSelect={(cat) => {
+                      handleAddCatalogItem(cat.id);
+                      setAddItemInput("");
+                    }}
+                    placeholder="+ เพิ่มรายการจากแค็ตตาล็อก"
+                    onCreate={async (input) => {
+                      const created = await addItem(input);
+                      handleAddCatalogItem(created.id);
+                      setAddItemInput("");
+                      return created;
+                    }}
                   />
                 </div>
               )}
-            </div>
+            </FormStep>
 
-            {!isEditing && paidInvoices.length > 0 && (
-              <>
-                <Select
-                  label="อ้างอิงใบแจ้งหนี้เดิม"
-                  value={refInvoiceId}
-                  onChange={(e) => setRefInvoiceId(e.target.value)}
-                >
-                  {paidInvoices.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.doc_number} — ฿{d.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-                    </option>
-                  ))}
-                </Select>
-                {!isDebit && (() => {
-                  const refInvoice = paidInvoices.find((d) => d.id === refInvoiceId);
-                  const invoiceTotal = Number(refInvoice?.total_amount || 0);
-                  if (!refInvoice || invoiceTotal <= 0) return null;
-                  const remaining = invoiceTotal - existingCreditTotal;
-                  return (
-                    <p className={`text-label leading-5 ${remaining <= 0 ? "text-amber-600" : "text-ink-500"}`}>
-                      {remaining > 0
-                        ? `วงเงินคงเหลือที่ลดได้จากใบนี้: ฿${remaining.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`
-                        : "ใบแจ้งหนี้นี้ถูกลดหนี้ครบวงเงินแล้ว"}
-                    </p>
-                  );
-                })()}
-              </>
-            )}
-
-            {isEditing && refInvoiceId && (
-              <div>
-                <span className="text-label text-ink-300">อ้างอิง</span>
-                <p className="text-body text-ink-300">
-                  {refInvoiceLines.length > 0
-                    ? (paidInvoices.find((d) => d.id === refInvoiceId)?.doc_number || refInvoiceId)
-                    : refInvoiceId}
-                </p>
+            <FormStep id="credit-step-summary" number={3} title="สรุปและบันทึก">
+              <div className="mb-3 text-label font-semibold text-ink-300">สรุปยอดเงิน</div>
+              <div className="space-y-1 text-body">
+                <div className="flex justify-between">
+                  <span className="text-ink-300">
+                    {isDebit ? "ยอดเพิ่มก่อน VAT" : "ยอดลดก่อน VAT"}
+                  </span>
+                  <span>฿{tax.subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                </div>
+                {vatRegistered && (
+                  <div className="flex justify-between">
+                    <span className="text-ink-300">
+                      {isDebit ? "VAT ที่เพิ่ม" : "VAT ที่ลด"} {vatRate}%
+                    </span>
+                    <span>
+                      ฿{tax.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+                {vatRegistered && (
+                  <div className="flex justify-between">
+                    <span className="text-ink-300">
+                      {isDebit ? "ยอดเพิ่มรวม (รวม VAT)" : "ยอดลดรวม (รวม VAT)"}
+                    </span>
+                    <span className="font-semibold">
+                      ฿{tax.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+                {whtConfirmed && tax.whtAmount > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-ink-300">WHT ที่เกี่ยวข้อง {whtRate}%</span>
+                      <span>
+                        ฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
+                      <span>{isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดเครดิตสุทธิ"}</span>
+                      <span>
+                        ฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {!vatRegistered && (
+                  <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
+                    <span>{isDebit ? "ยอดเพิ่มรวม" : "ยอดลดรวม"}</span>
+                    <span>
+                      ฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </FormStep>
 
-        {paidInvoices.length === 0 && !isEditing && (
-          <Card>
-            <p className="text-body text-ink-300 text-center py-4">
-              ไม่มีเอกสารที่ชำระแล้วในงานขายนี้
-            </p>
-          </Card>
-        )}
+              <div className="mt-4">
+                <label className="block text-label font-medium text-ink-600 mb-1">บันทึก</label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={
+                    isDebit
+                      ? "เหตุผลการเพิ่มหนี้ (เช่น ค่าใช้จ่ายเพิ่มเติมตามข้อตกลง)"
+                      : "เหตุผลการลดหนี้ (เช่น สินค้าเสียหาย, คืนเงินบางส่วน)"
+                  }
+                  rows={3}
+                  disabled={isReadOnly}
+                  className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-ink-400 resize-none disabled:bg-paper-field"
+                />
+              </div>
 
-        <FormStep number={2} title="รายการ">
-          <div className="text-label font-semibold text-ink-300 mb-3">
-            รายการ
-          </div>
+              {!isReadOnly && (
+                <div className="mt-4 rounded-card border border-warning-border bg-warning-soft px-3 py-3">
+                  <label className="flex items-start gap-2 text-label text-warning-text">
+                    <input
+                      type="checkbox"
+                      checked={whtConfirmed}
+                      onChange={(event) => setWhtConfirmed(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">มีการหักภาษี ณ ที่จ่ายจริงสำหรับรายการนี้</span>
+                      <span className="mt-0.5 block text-label leading-4 text-warning-text">
+                        เปิดใช้เฉพาะกรณีที่เกี่ยวข้องกับการชำระเงินจริงและมี/จะมีหนังสือรับรองหัก ณ
+                        ที่จ่าย
+                      </span>
+                    </span>
+                  </label>
+                  {whtConfirmed && (
+                    <Select
+                      label="อัตราภาษีหัก ณ ที่จ่าย"
+                      value={String(whtRate)}
+                      onChange={(event) => setWhtRate(Number(event.target.value) || 0)}
+                      className="mt-2"
+                    >
+                      {WHT_RATE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
+              )}
 
-          {items.length === 0 ? (
-            <p className="text-body text-ink-300 text-center py-4">
-              ยังไม่มีรายการ — เลือกอ้างอิงใบแจ้งหนี้ด้านบนหรือเพิ่มรายการจากแค็ตตาล็อก
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-label">
-                <thead>
-                  <tr className="border-b border-card-border text-ink-300">
-                    <th className="text-left py-2 pr-1 w-8">#</th>
-                    <th className="text-left py-2 pr-2">รายการ</th>
-                    <th className="text-right py-2 pr-2 w-16">จำนวน</th>
-                    <th className="text-right py-2 pr-2 w-20">ราคา/หน่วย</th>
-                    <th className="text-right py-2 pr-2 w-20">รวม</th>
-                    {!isReadOnly && <th className="w-6" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it, idx) => (
-                    <tr key={it.key} className="border-b border-card-border/50">
-                      <td className="py-2 pr-1 text-ink-300">{idx + 1}</td>
-                      <td className="py-2 pr-2">
-                        <div className="text-body font-medium truncate max-w-[160px]">
-                          {it.itemName}
-                        </div>
-                        {it.lineNote ? <div className="mt-0.5 text-label text-ink-300">{it.lineNote}</div> : null}
-                        <div className="text-label text-ink-300">{it.unit}</div>
-                      </td>
-                      <td className="py-2 pr-2">
-                        {isReadOnly ? (
-                          <span className="text-right block">{it.quantity}</span>
-                        ) : (
-                          <NumericInput
-                            value={it.quantity}
-                            maxFractionDigits={3}
-                            onTextChange={(text) => updateItem(it.key, "quantity", text)}
-                            className="text-label text-right px-1 py-1"
-                          />
-                        )}
-                      </td>
-                      <td className="py-2 pr-2">
-                        {isReadOnly ? (
-                          <span className="text-right block">{it.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-                        ) : (
-                          <NumericInput
-                            value={it.unitPrice}
-                            maxFractionDigits={2}
-                            minFractionDigits={2}
-                            onTextChange={(text) => updateItem(it.key, "unitPrice", text)}
-                            className="text-label text-right px-1 py-1"
-                          />
-                        )}
-                      </td>
-                      <td className="py-2 pr-2 text-right font-medium">
-                        {it.lineTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-                      </td>
-                      {!isReadOnly && (
-                        <td className="py-2 text-center">
-                          <button
-                            onClick={() => removeItem(it.key)}
-                            className="text-red-400 hover:text-red-600 text-label"
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+              {error && <p className="text-label text-danger-text">{error}</p>}
 
-          {!isReadOnly && (
-            <div className="mt-3 flex items-center gap-2">
-              <CatalogAutocomplete
-                items={catalogItems}
-                value={addItemInput}
-                onChange={setAddItemInput}
-                onSelect={(cat) => {
-                  handleAddCatalogItem(cat.id);
-                  setAddItemInput("");
+              <EditableDocNumber
+                value={docNumberOverride}
+                onChange={setDocNumberOverride}
+                placeholder={`เลขที่${docTitleTh} (เว้นว่าง = สร้างอัตโนมัติ)`}
+                autoGenerate={async () =>
+                  userId && !isEditing
+                    ? await resolveDocNumber(
+                        userId,
+                        docType,
+                        issueDate || todayString(),
+                        undefined,
+                        docId || undefined,
+                      )
+                    : ""
+                }
+                className="mb-3"
+              />
+            </FormStep>
+
+            {!isReadOnly && (
+              <FormActionBar
+                contextLabel={`${customer?.name || ""} · ${items.length} รายการ`}
+                totalLabel={isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดลดสุทธิ"}
+                total={tax.netPayable}
+                secondary={{
+                  label: "บันทึกฉบับร่าง",
+                  onClick: () => handleSave("draft"),
+                  loading: saving,
+                  disabled: saving,
                 }}
-                placeholder="+ เพิ่มรายการจากแค็ตตาล็อก"
-                onCreate={async (input) => {
-                  const created = await addItem(input);
-                  handleAddCatalogItem(created.id);
-                  setAddItemInput("");
-                  return created;
+                primary={{
+                  label: issueVerbTh,
+                  onClick: () => handleSave("issued"),
+                  loading: saving,
+                  disabled: saving,
                 }}
               />
-            </div>
-          )}
-        </FormStep>
-
-        <FormStep number={3} title="สรุปและบันทึก">
-          <div className="mb-3 text-label font-semibold text-ink-300">
-            สรุปยอดเงิน
-          </div>
-             <div className="space-y-1 text-body">
-             <div className="flex justify-between">
-               <span className="text-ink-300">{isDebit ? "ยอดเพิ่มก่อน VAT" : "ยอดลดก่อน VAT"}</span>
-              <span>฿{tax.subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-            </div>
-            {vatRegistered && (
-              <div className="flex justify-between">
-                 <span className="text-ink-300">{isDebit ? "VAT ที่เพิ่ม" : "VAT ที่ลด"} {vatRate}%</span>
-                <span>฿{tax.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-              </div>
-            )}
-            {vatRegistered && (
-              <div className="flex justify-between">
-                <span className="text-ink-300">{isDebit ? "ยอดเพิ่มรวม (รวม VAT)" : "ยอดลดรวม (รวม VAT)"}</span>
-                <span className="font-semibold">฿{tax.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-              </div>
-            )}
-             {whtConfirmed && tax.whtAmount > 0 && (
-               <>
-                 <div className="flex justify-between">
-                   <span className="text-ink-300">WHT ที่เกี่ยวข้อง {whtRate}%</span>
-                   <span>฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-                 </div>
-                 <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
-                   <span>{isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดเครดิตสุทธิ"}</span>
-                   <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-                 </div>
-               </>
-             )}
-            {!vatRegistered && (
-              <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
-                <span>{isDebit ? "ยอดเพิ่มรวม" : "ยอดลดรวม"}</span>
-                <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-              </div>
             )}
           </div>
-
-          <div className="mt-4">
-            <label className="block text-label font-medium text-ink-600 mb-1">
-              บันทึก
-            </label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={isDebit ? "เหตุผลการเพิ่มหนี้ (เช่น ค่าใช้จ่ายเพิ่มเติมตามข้อตกลง)" : "เหตุผลการลดหนี้ (เช่น สินค้าเสียหาย, คืนเงินบางส่วน)"}
-            rows={3}
-            disabled={isReadOnly}
-            className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-ink-400 resize-none disabled:bg-paper-field"
-          />
-          </div>
-
-          {!isReadOnly && (
-            <div className="mt-4 rounded-card border border-amber-200 bg-amber-50 px-3 py-3">
-              <label className="flex items-start gap-2 text-label text-amber-900">
-                <input
-                  type="checkbox"
-                  checked={whtConfirmed}
-                  onChange={(event) => setWhtConfirmed(event.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  <span className="font-medium">มีการหักภาษี ณ ที่จ่ายจริงสำหรับรายการนี้</span>
-                  <span className="mt-0.5 block text-label leading-4 text-amber-700">
-                    เปิดใช้เฉพาะกรณีที่เกี่ยวข้องกับการชำระเงินจริงและมี/จะมีหนังสือรับรองหัก ณ ที่จ่าย
-                  </span>
-                </span>
-              </label>
-              {whtConfirmed && (
-                <Select
-                  label="อัตราภาษีหัก ณ ที่จ่าย"
-                  value={String(whtRate)}
-                  onChange={(event) => setWhtRate(Number(event.target.value) || 0)}
-                  className="mt-2"
-                >
-                  {WHT_RATE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </Select>
-              )}
-            </div>
-          )}
-
-        {error && <p className="text-label text-red-500">{error}</p>}
-
-        <EditableDocNumber
-          value={docNumberOverride}
-          onChange={setDocNumberOverride}
-          placeholder={`เลขที่${docTitleTh} (เว้นว่าง = สร้างอัตโนมัติ)`}
-          autoGenerate={async () => userId && !isEditing ? await resolveDocNumber(userId, docType, issueDate || todayString(), undefined, docId || undefined) : ""}
-          className="mb-3"
-        />
-
-        </FormStep>
-
-        {!isReadOnly && (
-          <FormActionBar
-            contextLabel={`${customer?.name || ""} · ${items.length} รายการ`}
-            totalLabel={isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดลดสุทธิ"}
-            total={tax.netPayable}
-            secondary={{
-              label: "บันทึกฉบับร่าง",
-              onClick: () => handleSave("draft"),
-              loading: saving,
-              disabled: saving,
-            }}
-            primary={{
-              label: issueVerbTh,
-              onClick: () => handleSave("issued"),
-              loading: saving,
-              disabled: saving,
-            }}
-          />
-        )}
+        </div>
       </div>
     </AppShell>
   );
