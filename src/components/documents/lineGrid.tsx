@@ -4,13 +4,12 @@
  * between InvoiceFromDeliveryNotesForm and InvoiceFromQuotationForm.
  */
 
-export const LINE_GRID_COLS =
-  "grid-cols-[minmax(180px,1fr)_78px_58px_98px_62px_100px_30px]";
+export const LINE_GRID_COLS = "grid-cols-[minmax(180px,1fr)_78px_58px_98px_62px_100px_30px]";
 
 export function numericInputClass(highlight: boolean) {
   return `w-full rounded-control border bg-white px-2 py-1.5 text-right text-body tabular-nums text-ink-900 outline-none transition-colors ${
     highlight
-      ? "border-amber-400 bg-amber-50/60 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+      ? "border-warning bg-warning-soft/60 focus:border-warning focus:ring-2 focus:ring-warning/20"
       : "border-card-border focus:border-primary focus:ring-2 focus:ring-primary/20"
   }`;
 }

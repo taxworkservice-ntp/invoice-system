@@ -420,7 +420,7 @@ export default function MonitoringPage() {
                   count: counts.stale,
                   primary: "count",
                   alert: counts.stale > 0,
-                  hint: "ดีลที่เงียบเกินไป",
+                  hint: "งานขายที่เงียบเกินไป",
                   preset: "stale",
                 },
               ]}

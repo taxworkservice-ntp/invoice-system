@@ -6,8 +6,18 @@ import { toEraYear } from "../../lib/dates";
 import { useYearEra } from "../../components/YearEraProvider";
 
 const MONTH_LABELS = [
-  "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-  "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
 ];
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
@@ -47,29 +57,63 @@ export function ActiveFilterChips({
   if (filters.status !== "all")
     chips.push({
       key: "status",
-      label: STATUS_FILTER_LABELS[filters.status] || STATUS_LABELS[filters.status as keyof typeof STATUS_LABELS] || filters.status,
+      label:
+        STATUS_FILTER_LABELS[filters.status] ||
+        STATUS_LABELS[filters.status as keyof typeof STATUS_LABELS] ||
+        filters.status,
       clear: { status: "all" },
     });
   if (filters.month !== "all")
-    chips.push({ key: "month", label: `เดือน ${MONTH_LABELS[Number(filters.month) - 1] || filters.month}`, clear: { month: "all" } });
+    chips.push({
+      key: "month",
+      label: `เดือน ${MONTH_LABELS[Number(filters.month) - 1] || filters.month}`,
+      clear: { month: "all" },
+    });
   if (filters.year !== "all")
-    chips.push({ key: "year", label: `ปี ${toEraYear(Number(filters.year), era)}`, clear: { year: "all" } });
+    chips.push({
+      key: "year",
+      label: `ปี ${toEraYear(Number(filters.year), era)}`,
+      clear: { year: "all" },
+    });
   if (filters.from) chips.push({ key: "from", label: `จาก ${filters.from}`, clear: { from: "" } });
   if (filters.to) chips.push({ key: "to", label: `ถึง ${filters.to}`, clear: { to: "" } });
   if (filters.amountMin != null)
-    chips.push({ key: "amountMin", label: `≥ ฿${formatCurrency(filters.amountMin)}`, clear: { amountMin: null } });
+    chips.push({
+      key: "amountMin",
+      label: `≥ ฿${formatCurrency(filters.amountMin)}`,
+      clear: { amountMin: null },
+    });
   if (filters.amountMax != null)
-    chips.push({ key: "amountMax", label: `≤ ฿${formatCurrency(filters.amountMax)}`, clear: { amountMax: null } });
+    chips.push({
+      key: "amountMax",
+      label: `≤ ฿${formatCurrency(filters.amountMax)}`,
+      clear: { amountMax: null },
+    });
   if (filters.aging !== "all")
-    chips.push({ key: "aging", label: AGING_LABELS[filters.aging] || filters.aging, clear: { aging: "all" } });
+    chips.push({
+      key: "aging",
+      label: AGING_LABELS[filters.aging] || filters.aging,
+      clear: { aging: "all" },
+    });
   if (filters.customerId)
-    chips.push({ key: "customerId", label: customerName || "ลูกค้าที่เลือก", clear: { customerId: null } });
-  if (filters.item) chips.push({ key: "item", label: `รายการ: ${filters.item}`, clear: { item: "" } });
+    chips.push({
+      key: "customerId",
+      label: customerName || "ลูกค้าที่เลือก",
+      clear: { customerId: null },
+    });
+  if (filters.item)
+    chips.push({ key: "item", label: `รายการ: ${filters.item}`, clear: { item: "" } });
   if (filters.method !== "all")
-    chips.push({ key: "method", label: PAYMENT_METHOD_LABELS[filters.method] || filters.method, clear: { method: "all" } });
+    chips.push({
+      key: "method",
+      label: PAYMENT_METHOD_LABELS[filters.method] || filters.method,
+      clear: { method: "all" },
+    });
   if (filters.vatOnly) chips.push({ key: "vatOnly", label: "จด VAT", clear: { vatOnly: false } });
-  if (filters.whtOnly) chips.push({ key: "whtOnly", label: "มีหัก ณ ที่จ่าย", clear: { whtOnly: false } });
-  if (filters.hideVoided) chips.push({ key: "hideVoided", label: "ซ่อนที่ยกเลิก", clear: { hideVoided: false } });
+  if (filters.whtOnly)
+    chips.push({ key: "whtOnly", label: "มีหัก ณ ที่จ่าย", clear: { whtOnly: false } });
+  if (filters.hideVoided)
+    chips.push({ key: "hideVoided", label: "ซ่อนที่ยกเลิก", clear: { hideVoided: false } });
 
   if (chips.length === 0) return null;
 

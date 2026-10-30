@@ -18,9 +18,7 @@ export function FieldGuidance({ title, items, tip }: FieldGuidanceProps) {
   return (
     <div className="relative">
       <div className="flex items-center gap-1.5 mb-1">
-        <label className="block text-label font-medium text-ink-600">
-          {title}
-        </label>
+        <label className="block text-label font-medium text-ink-600">{title}</label>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}

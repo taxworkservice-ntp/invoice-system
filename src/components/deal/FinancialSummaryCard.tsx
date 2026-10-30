@@ -17,19 +17,21 @@ function Row({
 }) {
   const toneClass = {
     default: "text-ink-900",
-    red: "text-red-700",
-    green: "text-green-700",
-    amber: "text-amber-700",
-    blue: "text-blue-700",
+    red: "text-danger-text",
+    green: "text-success-text",
+    amber: "text-warning-text",
+    blue: "text-primary-deep",
     muted: "text-ink-500",
   }[tone];
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className={`min-w-0 ${strong ? "text-label font-medium text-ink-600" : "text-label text-ink-500"}`}>
+      <span
+        className={`min-w-0 ${strong ? "text-label font-medium text-ink-600" : "text-label text-ink-500"}`}
+      >
         {label}
       </span>
       <span
-        className={`shrink-0 tabular-nums ${ strong ? "text-body font-semibold" : "text-body font-medium" } ${toneClass}`}
+        className={`shrink-0 tabular-nums ${strong ? "text-body font-semibold" : "text-body font-medium"} ${toneClass}`}
       >
         {prefix}฿{formatCurrency(value)}
       </span>
@@ -40,9 +42,7 @@ function Row({
 function GroupHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="pb-1 pt-2 first:pt-0">
-      <span className="text-label font-semibold text-ink-400">
-        {children}
-      </span>
+      <span className="text-label font-semibold text-ink-400">{children}</span>
     </div>
   );
 }
@@ -79,20 +79,18 @@ export function FinancialSummaryCard({
         <div>
           <div className="text-body font-semibold text-ink-900">สรุปการเงิน</div>
           <div className="mt-0.5 text-label text-ink-500">
-            {summary.receiptCount > 0
-              ? `${summary.receiptCount} ใบเสร็จ`
-              : "ยังไม่มีใบเสร็จ"}
+            {summary.receiptCount > 0 ? `${summary.receiptCount} ใบเสร็จ` : "ยังไม่มีใบเสร็จ"}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {children}
-        </div>
+        <div className="flex shrink-0 items-center gap-1.5">{children}</div>
       </div>
 
       <div className="mt-3 divide-y divide-card-border">
         {/* 1) Per collection document — or the display-amount reference doc */}
         <section className="pb-2">
-          <GroupHeader>{hasCollectionDoc ? "ตามใบกำกับภาษี" : `ยอดอ้างอิงจาก${fallbackLabel}`}</GroupHeader>
+          <GroupHeader>
+            {hasCollectionDoc ? "ตามใบกำกับภาษี" : `ยอดอ้างอิงจาก${fallbackLabel}`}
+          </GroupHeader>
           <Row label="ยอดรวม (รวม VAT)" value={summary.grossAmount} />
           {summary.vatAmount > 0 && (
             <div className="pb-1 pl-2 text-label text-ink-400">
@@ -101,12 +99,18 @@ export function FinancialSummaryCard({
             </div>
           )}
           {summary.expectedWhtAmount > 0 && (
-            <Row label="หัก ณ ที่จ่ายตามเอกสาร" value={summary.expectedWhtAmount} prefix="−" tone="amber" />
+            <Row
+              label="หัก ณ ที่จ่ายตามเอกสาร"
+              value={summary.expectedWhtAmount}
+              prefix="−"
+              tone="amber"
+            />
           )}
           <Row label="ยอดสุทธิตามเอกสาร" value={summary.netPayable} strong />
           {!hasCollectionDoc && (
             <p className="mt-1 rounded-control bg-paper-field px-2 py-1.5 text-label leading-4 text-ink-500">
-              ยังไม่มีใบแจ้งหนี้ / ใบกำกับภาษี — ยอดนี้เป็นยอดอ้างอิงจาก{fallbackLabel} ยังไม่ถือเป็นลูกหนี้
+              ยังไม่มีใบแจ้งหนี้ / ใบกำกับภาษี — ยอดนี้เป็นยอดอ้างอิงจาก{fallbackLabel}{" "}
+              ยังไม่ถือเป็นลูกหนี้
             </p>
           )}
         </section>
@@ -117,9 +121,19 @@ export function FinancialSummaryCard({
             <GroupHeader>ปรับปรุงยอด</GroupHeader>
             {summary.debitTotal > 0 && (
               <>
-                <Row label="ใบเพิ่มหนี้ (รวม VAT)" value={summary.debitTotal} prefix="+" tone="amber" />
+                <Row
+                  label="ใบเพิ่มหนี้ (รวม VAT)"
+                  value={summary.debitTotal}
+                  prefix="+"
+                  tone="amber"
+                />
                 {summary.debitWht > 0 && (
-                  <Row label="WHT ที่เกี่ยวข้องกับใบเพิ่มหนี้" value={summary.debitWht} prefix="−" tone="muted" />
+                  <Row
+                    label="WHT ที่เกี่ยวข้องกับใบเพิ่มหนี้"
+                    value={summary.debitWht}
+                    prefix="−"
+                    tone="muted"
+                  />
                 )}
               </>
             )}
@@ -127,7 +141,12 @@ export function FinancialSummaryCard({
               <>
                 <Row label="ใบลดหนี้ (รวม VAT)" value={summary.creditTotal} prefix="−" tone="red" />
                 {summary.creditWht > 0 && (
-                  <Row label="WHT ที่เกี่ยวข้องกับใบลดหนี้" value={summary.creditWht} prefix="+" tone="muted" />
+                  <Row
+                    label="WHT ที่เกี่ยวข้องกับใบลดหนี้"
+                    value={summary.creditWht}
+                    prefix="+"
+                    tone="muted"
+                  />
                 )}
               </>
             )}
@@ -156,14 +175,23 @@ export function FinancialSummaryCard({
               )}
               {summary.customerCredit > 0 && (
                 <>
-                  <Row label="เครดิตเงินสดคงเหลือ" value={summary.customerCredit} tone="blue" strong />
-                  <p className="mt-1 rounded-control bg-blue-50 px-2 py-1.5 text-label leading-4 text-blue-800">
-                     ลูกค้าชำระเกินหลังปรับปรุง — เครดิตส่วนนี้ใช้หักกลบใบกำกับถัดไปได้
+                  <Row
+                    label="เครดิตเงินสดคงเหลือ"
+                    value={summary.customerCredit}
+                    tone="blue"
+                    strong
+                  />
+                  <p className="mt-1 rounded-control bg-primary-soft px-2 py-1.5 text-label leading-4 text-primary-deep">
+                    ลูกค้าชำระเกินหลังปรับปรุง — เครดิตส่วนนี้ใช้หักกลบใบกำกับถัดไปได้
                   </p>
                 </>
               )}
               {summary.whtAmount > 0 && (
-                <Row label="หัก ณ ที่จ่ายสะสม (ตามใบเสร็จ)" value={summary.whtAmount} tone="muted" />
+                <Row
+                  label="หัก ณ ที่จ่ายสะสม (ตามใบเสร็จ)"
+                  value={summary.whtAmount}
+                  tone="muted"
+                />
               )}
             </>
           )}
@@ -171,7 +199,8 @@ export function FinancialSummaryCard({
       </div>
 
       <div className="mt-2 border-t border-card-border pt-2 text-label leading-4 text-ink-400">
-         ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · WHT แสดงเมื่อมีจำนวนที่ระบุไว้ในเอกสาร · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
+        ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · WHT แสดงเมื่อมีจำนวนที่ระบุไว้ในเอกสาร · สะสม =
+        จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
       </div>
     </Card>
   );

@@ -7,7 +7,11 @@ interface SpinnerProps {
 
 export function Spinner({ className = "", inline = false }: SpinnerProps) {
   if (inline) {
-    return <div className={`inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ${className}`} />;
+    return (
+      <div
+        className={`inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ${className}`}
+      />
+    );
   }
   return (
     <div className={`flex items-center justify-center py-12 ${className}`}>

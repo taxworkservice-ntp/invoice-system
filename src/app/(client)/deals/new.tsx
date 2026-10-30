@@ -25,7 +25,11 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
-import { NextStepBanner, nextStepMessage, type NextStepState } from "../../../components/documents/NextStepBanner";
+import {
+  NextStepBanner,
+  nextStepMessage,
+  type NextStepState,
+} from "../../../components/documents/NextStepBanner";
 import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { Switch } from "../../../components/ui/Switch";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
@@ -142,7 +146,6 @@ interface JobDetailPresetInputProps {
   onDeletePreset: (value: string) => void;
 }
 
-
 function JobDetailPresetInput({
   label,
   value,
@@ -219,7 +222,7 @@ function JobDetailPresetInput({
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => onDeletePreset(preset)}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-400 transition-colors hover:bg-danger-soft hover:text-danger-text"
                     aria-label={`ลบ ${preset}`}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -575,9 +578,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Only named product lines count — section markers carry no price, and
   // unnamed placeholder rows are not reviewable yet (matches the save gate).
   const priceReviewableCount = dnPriceReviewRequired ? countReviewableLines(lineItems) : 0;
-  const pendingPriceReviewCount = dnPriceReviewRequired
-    ? countPendingPriceReviews(lineItems)
-    : 0;
+  const pendingPriceReviewCount = dnPriceReviewRequired ? countPendingPriceReviews(lineItems) : 0;
 
   function goToNextUnconfirmedPrice() {
     const target = findNextPendingPriceReview(lineItems);
@@ -1215,13 +1216,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       parseFloat(whtRate),
       { discountPercent: documentDiscountPercent },
     );
-  }, [
-    lineItemsWithTotals,
-    vatRegistered,
-    vatRate,
-    whtRate,
-    documentDiscountPercent,
-  ]);
+  }, [lineItemsWithTotals, vatRegistered, vatRate, whtRate, documentDiscountPercent]);
 
   const utilityValidation = useMemo(() => {
     if (!isUtilityBill)
@@ -1501,7 +1496,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     );
   };
 
-
   /**
    * The parts of a line that only this form has — job details, the quotation
    * example photo, and the "sold before at ฿x — use this price" shortcut.
@@ -1515,7 +1509,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       ? items.find((catalogItem) => catalogItem.id === item.item_id)
       : null;
     const jobDetailsEnabled =
-      jobDetailsFeatureEnabled && matchedItem?.item_type === "service" && matchedItem.has_job_details;
+      jobDetailsFeatureEnabled &&
+      matchedItem?.item_type === "service" &&
+      matchedItem.has_job_details;
     const jobDetailFields = matchedItem?.id
       ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
       : DEFAULT_JOB_DETAIL_FIELDS;
@@ -1580,7 +1576,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                 placeholder="35"
                                 className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                               />
-                              <select
+                              <Select
+                                size="sm"
+                                containerClassName="w-auto"
+                                aria-label="หน่วย"
                                 value={
                                   getJobDetailValue(item, `${field.field_key}_unit`) ||
                                   field.default_unit ||
@@ -1593,13 +1592,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                     e.target.value,
                                   )
                                 }
-                                className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label"
                               >
                                 <option value="มม.">มม.</option>
                                 <option value="ซม.">ซม.</option>
                                 <option value="นิ้ว">นิ้ว</option>
                                 <option value="เมตร">เมตร</option>
-                              </select>
+                              </Select>
                             </div>
                           </div>
                         );
@@ -1638,15 +1636,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     );
   };
 
-  /** Read-only row summary for a job-detail service line ("" when not one). */  const jobDetailsSummaryFor = (item: LineItemForm): string => {
-    if (!jobDetailsFeatureEnabled) return "";
-    const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
-    if (!(matchedItem?.item_type === "service" && matchedItem.has_job_details)) return "";
-    const fields = matchedItem.id
-      ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
-      : DEFAULT_JOB_DETAIL_FIELDS;
-    return getJobDetailsSummary(item, fields);
-  };
+  /** Read-only row summary for a job-detail service line ("" when not one). */ const jobDetailsSummaryFor =
+    (item: LineItemForm): string => {
+      if (!jobDetailsFeatureEnabled) return "";
+      const matchedItem = item.item_id
+        ? items.find((catalogItem) => catalogItem.id === item.item_id)
+        : null;
+      if (!(matchedItem?.item_type === "service" && matchedItem.has_job_details)) return "";
+      const fields = matchedItem.id
+        ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
+        : DEFAULT_JOB_DETAIL_FIELDS;
+      return getJobDetailsSummary(item, fields);
+    };
 
   /** "Sold to this customer before at ฿x — use this price" shortcut. */
   const renderPriceHint = (item: LineItemForm): React.ReactNode => {
@@ -2052,9 +2053,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   };
 
   const canSave =
-    selectedCustomer &&
-    issueDate !== "" &&
-    lineItems.some((lineItem) => lineItem.item_name.trim());
+    selectedCustomer && issueDate !== "" && lineItems.some((lineItem) => lineItem.item_name.trim());
   const isIssueDateToday = issueDate === todayString();
   // Segmented date control state — derived, never stored.
   const dateMode =
@@ -2264,7 +2263,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </div>
       )}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-control text-body text-red-600">
+        <div className="mb-4 p-3 bg-danger-soft border border-danger-border rounded-control text-body text-danger-text">
           {error}
         </div>
       )}
@@ -2313,7 +2312,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     ครบแล้ว
                   </span>
                 ) : (
-                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">
+                  <span className="rounded-full bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
                     จำเป็น
                   </span>
                 )}
@@ -2337,7 +2336,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     )}
                     {type !== "delivery_note" &&
                       (!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                        <p className="mt-1 text-label text-amber-600">
+                        <p className="mt-1 text-label text-warning-text">
                           ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
                         </p>
                       )}
@@ -2381,118 +2380,118 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             </Card>
 
             <Card id="deal-date" tone={dateEff ? "success" : undefined}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <StepHeading number={2} title="วันที่ออกเอกสาร" />
-                    <p className="mt-1 text-label text-ink-500">
-                      ต้องเลือกทุกครั้ง — ไม่มีค่าเริ่มต้น เพื่อป้องกันวันที่ผิด
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    {isDeliveryNote ? (
-                      dateEff ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
-                          <CheckCircle2 className="h-3 w-3" />
-                          ครบแล้ว
-                        </span>
-                      ) : dateOwn ? (
-                        <span className="rounded-full bg-ink-50 px-2 py-0.5 text-label font-medium text-ink-500">
-                          รอขั้นตอนก่อนหน้า
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">
-                          จำเป็น
-                        </span>
-                      )
-                    ) : null}
-                    {!isIssueDateToday && issueDate !== "" && (
-                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-label font-medium text-amber-700">
-                        {issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}
-                      </span>
-                    )}
-                  </div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <StepHeading number={2} title="วันที่ออกเอกสาร" />
+                  <p className="mt-1 text-label text-ink-500">
+                    ต้องเลือกทุกครั้ง — ไม่มีค่าเริ่มต้น เพื่อป้องกันวันที่ผิด
+                  </p>
                 </div>
-
-                <div className="mt-4 rounded-card border border-line-soft bg-paper-field px-4 py-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
-                      <div className="mt-1 text-body font-semibold text-ink-900">
-                        {issueDate ? (
-                          <>
-                            {docDate.date(issueDate)}
-                            <span className="ml-2 font-normal text-ink-500">
-                              {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
-                                weekday: "long",
-                              })}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="font-normal text-ink-400">ยังไม่เลือกวันที่</span>
-                        )}
-                      </div>
-                    </div>
-                    <div
-                      role="group"
-                      aria-label="เลือกวันที่ออกเอกสาร"
-                      className="inline-flex flex-wrap items-center rounded-control border border-line bg-white p-0.5"
-                    >
-                      {(
-                        [
-                          { value: "today", label: "วันนี้" },
-                          { value: "tomorrow", label: "พรุ่งนี้" },
-                          { value: "custom", label: "กำหนดเอง" },
-                        ] as const
-                      ).map((option) => {
-                        const selected =
-                          option.value === "custom"
-                            ? customDateOpen || dateMode === "custom"
-                            : dateMode === option.value && !customDateOpen;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            aria-pressed={selected}
-                            onClick={() => {
-                              if (option.value === "today") {
-                                setIssueDate(todayString());
-                                setCustomDateOpen(false);
-                              } else if (option.value === "tomorrow") {
-                                setIssueDate(addDaysString(todayString(), 1));
-                                setCustomDateOpen(false);
-                              } else {
-                                setCustomDateOpen(true);
-                              }
-                            }}
-                            className={`rounded-[6px] px-2.5 py-1 text-label font-medium transition-colors ${
-                              selected ? "bg-primary text-white" : "text-ink-500 hover:text-ink-700"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {(dateMode === "custom" || customDateOpen) && (
-                    <div className="mt-3 border-t border-line-faint pt-3">
-                      <Input
-                        id="issueDate"
-                        label="วันที่ออกเอกสาร"
-                        type="date"
-                        value={issueDate}
-                        max={addDaysString(todayString(), 365)}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setIssueDate(v);
-                          if (v === todayString() || v === addDaysString(todayString(), 1)) {
-                            setCustomDateOpen(false);
-                          }
-                        }}
-                      />
-                    </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {isDeliveryNote ? (
+                    dateEff ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
+                        <CheckCircle2 className="h-3 w-3" />
+                        ครบแล้ว
+                      </span>
+                    ) : dateOwn ? (
+                      <span className="rounded-full bg-ink-50 px-2 py-0.5 text-label font-medium text-ink-500">
+                        รอขั้นตอนก่อนหน้า
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
+                        จำเป็น
+                      </span>
+                    )
+                  ) : null}
+                  {!isIssueDateToday && issueDate !== "" && (
+                    <span className="rounded-full bg-warning-soft px-2.5 py-1 text-label font-medium text-warning-text">
+                      {issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}
+                    </span>
                   )}
                 </div>
+              </div>
+
+              <div className="mt-4 rounded-card border border-line-soft bg-paper-field px-4 py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
+                    <div className="mt-1 text-body font-semibold text-ink-900">
+                      {issueDate ? (
+                        <>
+                          {docDate.date(issueDate)}
+                          <span className="ml-2 font-normal text-ink-500">
+                            {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
+                              weekday: "long",
+                            })}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-normal text-ink-400">ยังไม่เลือกวันที่</span>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    role="group"
+                    aria-label="เลือกวันที่ออกเอกสาร"
+                    className="inline-flex flex-wrap items-center rounded-control border border-line bg-white p-0.5"
+                  >
+                    {(
+                      [
+                        { value: "today", label: "วันนี้" },
+                        { value: "tomorrow", label: "พรุ่งนี้" },
+                        { value: "custom", label: "กำหนดเอง" },
+                      ] as const
+                    ).map((option) => {
+                      const selected =
+                        option.value === "custom"
+                          ? customDateOpen || dateMode === "custom"
+                          : dateMode === option.value && !customDateOpen;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            if (option.value === "today") {
+                              setIssueDate(todayString());
+                              setCustomDateOpen(false);
+                            } else if (option.value === "tomorrow") {
+                              setIssueDate(addDaysString(todayString(), 1));
+                              setCustomDateOpen(false);
+                            } else {
+                              setCustomDateOpen(true);
+                            }
+                          }}
+                          className={`rounded-[6px] px-2.5 py-1 text-label font-medium transition-colors ${
+                            selected ? "bg-primary text-white" : "text-ink-500 hover:text-ink-700"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {(dateMode === "custom" || customDateOpen) && (
+                  <div className="mt-3 border-t border-line-faint pt-3">
+                    <Input
+                      id="issueDate"
+                      label="วันที่ออกเอกสาร"
+                      type="date"
+                      value={issueDate}
+                      max={addDaysString(todayString(), 365)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setIssueDate(v);
+                        if (v === todayString() || v === addDaysString(todayString(), 1)) {
+                          setCustomDateOpen(false);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </Card>
 
             {!isDeliveryNote && (
@@ -2524,15 +2523,15 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     </p>
                   </div>
                   {loadingUtilityLast ? (
-                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-label font-medium text-blue-700">
+                    <span className="rounded-full bg-primary-soft px-2.5 py-1 text-label font-medium text-primary-deep">
                       กำลังดูรอบก่อน
                     </span>
                   ) : null}
                 </div>
 
                 {utilityLastHint && utilityLastHint.includes("ดึงเลขครั้งก่อน") && (
-                  <div className="mt-3 rounded-control border border-emerald-200 bg-emerald-50 px-3 py-2 text-label text-emerald-800 flex items-center gap-1.5">
-                    <span className="text-emerald-600 font-semibold">&#10003;</span>
+                  <div className="mt-3 rounded-control border border-success-border bg-success-soft px-3 py-2 text-label text-success-text flex items-center gap-1.5">
+                    <span className="text-success-text font-semibold">&#10003;</span>
                     {utilityLastHint}
                   </div>
                 )}
@@ -2587,7 +2586,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                       <NumericInput
                         label="เลขก่อนหน้า"
-                        value={utilityPreviousReading === "" ? null : parseAmount(utilityPreviousReading)}
+                        value={
+                          utilityPreviousReading === "" ? null : parseAmount(utilityPreviousReading)
+                        }
                         maxFractionDigits={3}
                         onTextChange={setUtilityPreviousReading}
                         placeholder="0"
@@ -2595,7 +2596,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       <span className="pb-2 text-ink-400 text-body">→</span>
                       <NumericInput
                         label="เลขปัจจุบัน"
-                        value={utilityCurrentReading === "" ? null : parseAmount(utilityCurrentReading)}
+                        value={
+                          utilityCurrentReading === "" ? null : parseAmount(utilityCurrentReading)
+                        }
                         maxFractionDigits={3}
                         onTextChange={setUtilityCurrentReading}
                         placeholder="0"
@@ -2714,7 +2717,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         </span>
                       )
                     ) : (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">
+                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
                         จำเป็น
                       </span>
                     )}
@@ -2968,9 +2971,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                   )}
                                   <span className="font-medium tabular-nums text-ink-900">
                                     ฿
-                                    {calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                    })}
+                                    {calculateLineAmounts(item).lineTotal.toLocaleString(
+                                      undefined,
+                                      {
+                                        minimumFractionDigits: 2,
+                                      },
+                                    )}
                                   </span>
                                   {hasCartonOption(item) && isCartonUnitSelected(item) && (
                                     <span>
@@ -3004,7 +3010,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                   onClick={() => removeLineItem(item.id)}
                                   aria-label="ลบรายการ"
                                   title="ลบรายการ"
-                                  className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-red-600 md:h-auto md:w-auto"
+                                  className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-danger-text md:h-auto md:w-auto"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
@@ -3043,13 +3049,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     sourceSummary={null}
                     onClose={closeLineEditor}
                     onOpenPriceHistory={
-                      editingLine?.item_id
-                        ? () => setPriceHistoryLineId(editingLine.id)
-                        : undefined
+                      editingLine?.item_id ? () => setPriceHistoryLineId(editingLine.id) : undefined
                     }
-                    extra={
-                      editingLine ? renderLineOptions(editingLine) : null
-                    }
+                    extra={editingLine ? renderLineOptions(editingLine) : null}
                     priceHint={editingLine ? renderPriceHint(editingLine) : null}
                     onPatch={(patch) => {
                       if (!editingLine) return;
@@ -3122,7 +3124,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         ยอดก่อนส่วนลด: ฿
                         {tax.grossSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
-                      <p className="text-red-500">
+                      <p className="text-danger-text">
                         ส่วนลดรายรายการ: -฿
                         {tax.lineDiscountAmount.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
@@ -3143,7 +3145,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     </div>
                   )}
                   {tax.discountAmount > 0 && (
-                    <p className="text-red-500">
+                    <p className="text-danger-text">
                       ส่วนลดท้ายบิล: -฿
                       {tax.discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </p>
@@ -3162,7 +3164,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     {tax.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                   {parseFloat(whtRate) > 0 && (
-                    <p className="text-red-500">
+                    <p className="text-danger-text">
                       หัก ณ ที่จ่าย {whtRate}%: -฿
                       {tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </p>
@@ -3281,26 +3283,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       disabled
                     />
                   )}
-                  <div>
-                    <label className="block text-label font-medium text-ink-500 mb-1">
-                      หัก ณ ที่จ่าย
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
-                      value={whtRate}
-                      onChange={(e) => setWhtRate(e.target.value as WhtRate)}
-                    >
-                      {WHT_RATE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <Select
+                    label="หัก ณ ที่จ่าย"
+                    value={whtRate}
+                    onChange={(e) => setWhtRate(e.target.value as WhtRate)}
+                  >
+                    {WHT_RATE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </Select>
                   <div className="border-t border-card-border pt-3">
-                    <label className="block text-label font-medium text-ink-500 mb-1">
-                      บันทึก
-                    </label>
+                    <label className="block text-label font-medium text-ink-500 mb-1">บันทึก</label>
                     <textarea
                       value={note}
                       onChange={(event) => setNote(event.target.value)}
@@ -3380,7 +3375,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   onClick={handleDnGuideGoto}
                   role="status"
                   aria-live="polite"
-                  className="mb-2 flex w-full items-center gap-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2 text-left text-body text-amber-900"
+                  className="mb-2 flex w-full items-center gap-2 rounded-control border border-warning-border bg-warning-soft/60 px-3 py-2 text-left text-body text-warning-text"
                 >
                   <ListTodo className="h-4 w-4 shrink-0 text-pending-text" />
                   <span className="min-w-0 flex-1 truncate">{blockedMessage}</span>
@@ -3426,7 +3421,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     <span className="font-medium text-ink-900">
                       {issueDate ? docDate.date(issueDate) : "-"}
                       {issueDate && !isIssueDateToday && (
-                        <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
+                        <span className="ml-2 rounded-full bg-warning-soft px-2 py-0.5 text-label font-medium text-warning-text">
                           {issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}
                         </span>
                       )}
@@ -3441,7 +3436,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 </div>
 
                 {duplicateWarning && duplicateWarning.length > 0 && (
-                  <div className="rounded-control border border-amber-200 bg-amber-50 p-3 text-label leading-5 text-amber-900">
+                  <div className="rounded-control border border-warning-border bg-warning-soft p-3 text-label leading-5 text-warning-text">
                     <p className="font-medium">พบใบแจ้งหนี้ที่อาจซ้ำกัน — โปรดตรวจสอบก่อนบันทึก</p>
                     <ul className="mt-1 list-disc ml-4">
                       {duplicateWarning.map((line) => (
@@ -3461,9 +3456,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       .map((li) => (
                         <div key={li.id} className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="truncate font-medium text-ink-900">
-                              {li.item_name}
-                            </div>
+                            <div className="truncate font-medium text-ink-900">{li.item_name}</div>
                             <div className="text-label text-ink-500">
                               {li.quantity} {li.unit || li.base_unit} × ฿
                               {li.unit_price.toLocaleString(undefined, {
@@ -3542,7 +3535,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               open={itemCreateModal.open}
               initialName={
                 itemCreateModal.targetLineId
-                  ? (lineItems.find((line) => line.id === itemCreateModal.targetLineId)?.item_name ?? "")
+                  ? (lineItems.find((line) => line.id === itemCreateModal.targetLineId)
+                      ?.item_name ?? "")
                   : ""
               }
               onClose={() => setItemCreateModal({ open: false, targetLineId: null })}

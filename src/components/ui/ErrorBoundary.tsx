@@ -24,7 +24,10 @@ export class ErrorBoundary extends Component<Props, State> {
             กรุณารีเฟรชหน้าใหม่ หรือลองใหม่อีกครั้ง
           </p>
           <button
-            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.reload();
+            }}
             className="mt-2 px-4 py-2 text-body font-medium text-white bg-primary rounded-control hover:opacity-90"
           >
             รีเฟรช

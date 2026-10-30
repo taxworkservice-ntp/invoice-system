@@ -71,14 +71,14 @@ export function LineImageUpload({ userId, imageKey, onKeyChange }: LineImageUplo
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="block text-blue-600 hover:underline"
+              className="block text-primary-deep hover:underline"
             >
               {uploading ? "กำลังอัปโหลด..." : "เปลี่ยนรูป"}
             </button>
             <button
               type="button"
               onClick={handleRemove}
-              className="block text-red-400 hover:underline"
+              className="block text-danger-text hover:underline"
             >
               ลบรูป
             </button>
@@ -89,19 +89,13 @@ export function LineImageUpload({ userId, imageKey, onKeyChange }: LineImageUplo
           type="button"
           disabled={uploading}
           onClick={() => fileRef.current?.click()}
-          className="rounded-control border border-card-border bg-white px-2 py-1 text-label text-ink-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:opacity-50"
+          className="rounded-control border border-card-border bg-white px-2 py-1 text-label text-ink-500 transition-colors hover:border-primary-border hover:text-primary-deep disabled:opacity-50"
         >
           {uploading ? "กำลังอัปโหลด..." : "+ เพิ่มรูปตัวอย่าง"}
         </button>
       )}
-      {error && <p className="mt-1 text-label text-red-500">{error}</p>}
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFile}
-      />
+      {error && <p className="mt-1 text-label text-danger-text">{error}</p>}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
     </div>
   );
 }

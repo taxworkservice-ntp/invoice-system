@@ -72,13 +72,13 @@ export function NextStepBanner({
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-warning-border bg-warning-soft/60 px-3 py-2.5"
     >
       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-pending-bg px-2 py-0.5 text-label font-medium text-pending-text">
         <ListTodo className="h-3.5 w-3.5" />
         ขั้นตอนต่อไป
       </span>
-      <p className="min-w-0 flex-1 text-body text-amber-900">{message}</p>
+      <p className="min-w-0 flex-1 text-body text-warning-text">{message}</p>
       {state.kind === "fill-quantities" ? (
         <Button size="sm" onClick={onFillAll}>
           ใส่คงเหลือทั้งหมด

@@ -2595,7 +2595,7 @@ export default function DealDetailPage() {
                               doc.status === "issued"
                                 ? "bg-paid-text"
                                 : "",
-                              doc.status === "partially_paid" ? "bg-amber-600" : "",
+                              doc.status === "partially_paid" ? "bg-warning" : "",
                               doc.status === "converted" ? "bg-ink-200" : "",
                               overdue ? "bg-danger" : "",
                               (doc.status === "sent" || doc.status === "in_billing") &&
@@ -2610,7 +2610,7 @@ export default function DealDetailPage() {
                           )}
                         </div>
                         <Card
-                          className={`mb-2 flex-1 ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-paper-field" : ""}`}
+                          className={`mb-2 flex-1 ${isCurrent ? "border-primary bg-primary-soft/30" : ""} ${isDoneStage ? "bg-paper-field" : ""}`}
                           onClick={() => navigate(`/documents/${doc.id}`)}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -2721,7 +2721,7 @@ export default function DealDetailPage() {
                                     <span>VAT ฿{formatCurrency(doc.vat_amount)}</span>
                                   )}
                                   {doc.wht_amount > 0 && (
-                                    <span className="text-amber-600">
+                                    <span className="text-warning-text">
                                       หัก ณ ที่จ่าย -฿{formatCurrency(doc.wht_amount)}
                                     </span>
                                   )}
@@ -2735,7 +2735,7 @@ export default function DealDetailPage() {
                                   {doc.doc_type === "receipt" ? (
                                     <>
                                       {doc.wht_amount > 0 && (
-                                        <div className="text-amber-600">
+                                        <div className="text-warning-text">
                                           <span className="font-medium">หัก ณ ที่จ่าย</span> ฿
                                           {doc.wht_amount.toLocaleString()}
                                         </div>
@@ -2758,7 +2758,7 @@ export default function DealDetailPage() {
                                         <span className="font-medium">เก็บแล้ว</span> ฿
                                         {(doc.amount_received || 0).toLocaleString()}
                                       </div>
-                                      <div className="text-amber-600">
+                                      <div className="text-warning-text">
                                         <span className="font-medium">คงเหลือ</span> ฿
                                         {Math.max(
                                           0,

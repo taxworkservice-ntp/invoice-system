@@ -38,7 +38,9 @@ function ReferenceInput({
     <div>
       <label className="block text-label font-medium text-ink-500 mb-1">{label}</label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">{icon}</span>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">
+          {icon}
+        </span>
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -77,7 +79,8 @@ export function PoTaskFields({
 }: PoTaskFieldsProps) {
   const taskListId = useId();
   const poListId = useId();
-  const hasConflicts = (poConflicts && poConflicts.length > 0) || (taskConflicts && taskConflicts.length > 0);
+  const hasConflicts =
+    (poConflicts && poConflicts.length > 0) || (taskConflicts && taskConflicts.length > 0);
 
   return (
     <div className={className}>
@@ -105,7 +108,7 @@ export function PoTaskFields({
         <p className="mt-1 text-label text-ink-400">ค่าอัตโนมัติจาก {sourceHint} — แก้ไขได้</p>
       )}
       {hasConflicts && (
-        <div className="mt-1.5 flex items-start gap-1.5 rounded-control border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-label leading-4 text-amber-700">
+        <div className="mt-1.5 flex items-start gap-1.5 rounded-control border border-warning-border bg-warning-soft px-2.5 py-1.5 text-label leading-4 text-warning-text">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <div className="space-y-0.5">
             {taskConflicts && taskConflicts.length > 0 && (

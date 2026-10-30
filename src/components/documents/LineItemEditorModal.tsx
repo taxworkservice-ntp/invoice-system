@@ -196,7 +196,7 @@ export function LineItemEditorModal({
                 ? ` · ร่างค้าง ${formatQty(sourceSummary.pending)}`
                 : ""} ·{" "}
               <span
-                className={`font-medium ${remaining != null && remaining < 0 ? "text-red-700" : "text-ink-800"}`}
+                className={`font-medium ${remaining != null && remaining < 0 ? "text-danger-text" : "text-ink-800"}`}
               >
                 คงเหลือให้ส่ง {formatQty(Math.max(0, remaining ?? 0))} {unitLabel}
               </span>
@@ -269,7 +269,7 @@ export function LineItemEditorModal({
         </div>
 
         {over && (
-          <div className="text-label font-medium text-amber-800">
+          <div className="text-label font-medium text-warning-text">
             เกินคงเหลือ {formatQty(round3(line.quantity - Math.max(0, remaining ?? 0)))} {unitLabel}{" "}
             — ตรวจสอบกับลูกค้าก่อนส่ง
           </div>
@@ -316,8 +316,8 @@ export function LineItemEditorModal({
           <div className="flex items-start gap-1.5 rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-4 text-warning-text">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              ต่างจากราคาแค็ตตาล็อก ฿{formatCurrency(catalogExpectedPrice)}/{line.unit}{" "}
-              — ตรวจสอบก่อนยืนยัน
+              ต่างจากราคาแค็ตตาล็อก ฿{formatCurrency(catalogExpectedPrice)}/{line.unit} —
+              ตรวจสอบก่อนยืนยัน
             </span>
           </div>
         )}
@@ -327,7 +327,7 @@ export function LineItemEditorModal({
             className={
               line.price_confirmed
                 ? "rounded-control border border-line bg-paper-field px-3 py-2"
-                : "rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2"
+                : "rounded-control border border-warning-border bg-warning-soft/60 px-3 py-2"
             }
             confirmed={line.price_confirmed}
             onConfirm={() => onPatch({ price_confirmed: true })}
@@ -352,7 +352,7 @@ export function LineItemEditorModal({
             onClick={() => onPatch({ hide_amounts_on_print: !line.hide_amounts_on_print })}
             className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-label transition-colors ${
               line.hide_amounts_on_print
-                ? "border-amber-300 bg-amber-50 text-amber-800"
+                ? "border-warning-border bg-warning-soft text-warning-text"
                 : "border-card-border bg-white text-ink-500 hover:border-primary hover:text-primary"
             }`}
             title={
@@ -378,12 +378,12 @@ export function LineItemEditorModal({
         <button
           type="button"
           onClick={onDelete}
-          className="mr-auto text-label font-medium text-red-600 hover:text-red-700"
+          className="mr-auto text-label font-medium text-danger-text hover:text-danger-text"
         >
           ลบรายการนี้
         </button>
         {needsPriceConfirm && (
-          <span className="w-full text-right text-label font-medium text-amber-800">
+          <span className="w-full text-right text-label font-medium text-warning-text">
             กรุณากดยืนยันราคาด้านบนก่อนบันทึก
           </span>
         )}

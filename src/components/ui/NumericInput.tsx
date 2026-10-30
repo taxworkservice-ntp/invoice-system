@@ -103,8 +103,7 @@ export function NumericInput({
     // `nextText` is always our own formatted output — its commas are grouping.
     const sanitized = sanitizeNumericInput(nextText, { commasAreGrouping: true });
     const parsed = parseNumeric(sanitized);
-    const bounded =
-      parsed != null && maxValue != null ? Math.min(parsed, maxValue) : parsed;
+    const bounded = parsed != null && maxValue != null ? Math.min(parsed, maxValue) : parsed;
     onValueChange?.(bounded ?? 0);
   }
 
@@ -132,8 +131,7 @@ export function NumericInput({
   function handleBlur() {
     focused.current = false;
     const parsed = parseNumeric(text);
-    const bounded =
-      parsed != null && maxValue != null ? Math.min(parsed, maxValue) : parsed;
+    const bounded = parsed != null && maxValue != null ? Math.min(parsed, maxValue) : parsed;
     setText(displayFor(bounded));
     if (parsed == null) onValueChange?.(0);
     onTextChange?.(parsed == null ? "" : String(bounded ?? 0));
