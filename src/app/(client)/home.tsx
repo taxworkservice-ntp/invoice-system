@@ -19,6 +19,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SortableTh } from "../../components/ui/SortableTh";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { Select } from "../../components/ui/Select";
 import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
@@ -1326,7 +1327,7 @@ export default function HomePage() {
                                 <span className="text-ink-500 tabular-nums min-w-[100px] inline-block text-right whitespace-nowrap">
                                   ฿ {formatCurrency(deal.grossAmount)}
                                   {deal.isPartiallyPaid && deal.partialReceived > 0 && (
-                                    <span className="block text-label text-amber-700 font-medium leading-tight">
+                                    <span className="block text-label text-warning-text font-medium leading-tight">
                                       รับแล้ว ฿{formatCurrency(deal.partialReceived)}
                                     </span>
                                   )}
@@ -1339,7 +1340,7 @@ export default function HomePage() {
                                   ฿ {formatCurrency(deal.expectedWhtAmount)}
                                   {deal.whtAmount > 0 &&
                                     deal.whtAmount !== deal.expectedWhtAmount && (
-                                      <span className="block text-label font-medium text-amber-700">
+                                      <span className="block text-label font-medium text-warning-text">
                                         สะสม ฿{formatCurrency(deal.whtAmount)}
                                       </span>
                                     )}
@@ -1394,26 +1395,30 @@ export default function HomePage() {
                   </div>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span className="text-label text-ink-500">เรียงตาม</span>
-                    <select
+                    <Select
+                      size="sm"
+                      containerClassName="w-auto"
+                      aria-label="เรียงตาม"
                       value={doneSort}
                       onChange={(e) => {
                         setDoneSort(e.target.value as "updatedAt" | "paidAt");
                         setDonePage(1);
                       }}
-                      className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="updatedAt">แก้ไขล่าสุด</option>
                       <option value="paidAt">วันที่ชำระ</option>
-                    </select>
+                    </Select>
 
                     <span className="text-label text-ink-500">ปี</span>
-                    <select
+                    <Select
+                      size="sm"
+                      containerClassName="w-auto"
+                      aria-label="ปี"
                       value={doneYear}
                       onChange={(e) => {
                         setDoneYear(e.target.value);
                         setDonePage(1);
                       }}
-                      className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="all">ทุกปี</option>
                       {doneYearOptions.map((y) => (
@@ -1421,16 +1426,18 @@ export default function HomePage() {
                           {toEraYear(Number(y), docDate.era)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
 
                     <span className="text-label text-ink-500">เดือน</span>
-                    <select
+                    <Select
+                      size="sm"
+                      containerClassName="w-auto"
+                      aria-label="เดือน"
                       value={doneMonth}
                       onChange={(e) => {
                         setDoneMonth(e.target.value);
                         setDonePage(1);
                       }}
-                      className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="all">ทุกเดือน</option>
                       {DONE_MONTH_OPTIONS.map((m) => (
@@ -1438,7 +1445,7 @@ export default function HomePage() {
                           {m.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <label
                       className="ml-1 flex cursor-pointer select-none items-center gap-1.5 text-label text-ink-500"
                       title="ซ่อนทุกงานที่เอกสารถูกรวมออกบิลไปยังงานขายอื่น (ใบแจ้งหนี้หรือใบวางบิล) เหลือเฉพาะงานที่ปิดจบภายในตัวเอง"

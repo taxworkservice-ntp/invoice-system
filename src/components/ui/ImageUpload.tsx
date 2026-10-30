@@ -154,7 +154,7 @@ export function ImageUpload({
             <button
               type="button"
               onClick={handleRemove}
-              className="mt-1 block text-label text-red-400 hover:underline"
+              className="mt-1 block text-label text-danger-text hover:underline"
             >
               ลบ{label}
             </button>
@@ -162,7 +162,7 @@ export function ImageUpload({
         </div>
       </div>
 
-      {uploadError && <p className="mt-2 text-label text-red-500">{uploadError}</p>}
+      {uploadError && <p className="mt-2 text-label text-danger-text">{uploadError}</p>}
 
       <input ref={fileRef} type="file" accept={accept} className="hidden" onChange={handleFile} />
     </div>

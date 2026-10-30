@@ -158,6 +158,11 @@ lint rules, and their geometry is frozen (`--print-font-size`,
   retired type sizes, `font-bold`, retired page containers
   (`max-w-7xl` / `max-w-screen-2xl`) and per-page container widths
   (`max-w-page` / `max-w-form` outside the shell).
+- **Strict scope:** the migrated surfaces (deals, documents, home, and the
+  deal/documents/payments/ui components) additionally fail on raw
+  `amber/blue/green/red/emerald/violet/purple/orange/yellow` utilities, native
+  `<select>` elements, and hand-rolled status pills. Add a path when a slice
+  lands; never add a file to silence a new violation.
 - `npm run lint` — ESLint (TypeScript + React hooks) **plus** the design check.
 - `npm run test:ui-snapshots` — Playwright visual baselines for key pages, at
   1280px (`visual`) and 1920px (`visual-wide`). Width changes are invisible at

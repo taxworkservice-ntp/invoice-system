@@ -35,7 +35,12 @@ export function LineUnitControl({
 }) {
   if (!cartonUnit || !(qtyPerCarton > 0)) return null;
 
-  const soldByCarton = isCartonUnitSelected({ quantity, unit, carton_unit: cartonUnit, qty_per_carton: qtyPerCarton });
+  const soldByCarton = isCartonUnitSelected({
+    quantity,
+    unit,
+    carton_unit: cartonUnit,
+    qty_per_carton: qtyPerCarton,
+  });
   const baseQuantity = lineBaseQuantity({
     quantity,
     unit,

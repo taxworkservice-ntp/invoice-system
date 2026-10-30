@@ -1141,7 +1141,9 @@ export function DeliveryNoteFromQuotationForm({
   if (error || !quotation) {
     return (
       <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
-        <div className="py-12 text-center text-body text-red-600">{error || "ไม่พบใบเสนอราคา"}</div>
+        <div className="py-12 text-center text-body text-danger-text">
+          {error || "ไม่พบใบเสนอราคา"}
+        </div>
       </AppShell>
     );
   }
@@ -1160,13 +1162,13 @@ export function DeliveryNoteFromQuotationForm({
   return (
     <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
       {error && (
-        <div className="mb-4 rounded-control border border-red-200 bg-red-50 p-3 text-body text-red-600">
+        <div className="mb-4 rounded-control border border-danger-border bg-danger-soft p-3 text-body text-danger-text">
           {error}
         </div>
       )}
 
       {existingDraft && (
-        <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+        <div className="mb-4 flex items-start gap-3 rounded-control border border-warning-border bg-warning-soft p-3 text-body text-warning-text">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">
@@ -1258,7 +1260,7 @@ export function DeliveryNoteFromQuotationForm({
           <FormStepRail steps={guideSteps} onSelect={(id) => scrollToId(id)} activeId={spyActive} />
           <div className="min-w-0 space-y-4">
             {overDeliveryLines.length > 0 && (
-              <div className="flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+              <div className="flex items-start gap-3 rounded-control border border-warning-border bg-warning-soft p-3 text-body text-warning-text">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
                   <p className="font-medium">มีรายการที่เกินจำนวนคงเหลือจากใบเสนอราคา</p>
@@ -1283,7 +1285,7 @@ export function DeliveryNoteFromQuotationForm({
               }
             >
               {saveAttempted && !step1Done && (
-                <div className="mb-3 flex items-start gap-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2 text-label leading-5 text-amber-800">
+                <div className="mb-3 flex items-start gap-2 rounded-control border border-warning-border bg-warning-soft/60 px-3 py-2 text-label leading-5 text-warning-text">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="font-medium">
                     {itemLineCount === 0
@@ -1425,7 +1427,7 @@ export function DeliveryNoteFromQuotationForm({
                           key={line.id}
                           id={`dn-line-${line.id}`}
                           className={
-                            over ? "bg-amber-50/60" : done ? "bg-success-soft/40" : undefined
+                            over ? "bg-warning-soft/60" : done ? "bg-success-soft/40" : undefined
                           }
                         >
                           <td className="px-2 py-2 align-top">
@@ -1477,7 +1479,7 @@ export function DeliveryNoteFromQuotationForm({
                               <button
                                 type="button"
                                 onClick={openEditor}
-                                className="mt-0.5 block text-left text-label font-medium text-amber-800"
+                                className="mt-0.5 block text-left text-label font-medium text-warning-text"
                               >
                                 เกินคงเหลือ{" "}
                                 {formatQty(round3(line.quantity - Math.max(0, remaining!)))}{" "}
@@ -1488,7 +1490,7 @@ export function DeliveryNoteFromQuotationForm({
                               <button
                                 type="button"
                                 onClick={openEditor}
-                                className="mt-0.5 block text-left text-label font-medium text-amber-800"
+                                className="mt-0.5 block text-left text-label font-medium text-warning-text"
                               >
                                 รอการยืนยันราคา — แตะเพื่อยืนยัน
                               </button>
@@ -1577,7 +1579,7 @@ export function DeliveryNoteFromQuotationForm({
                                 onClick={() => removeLine(line.id)}
                                 aria-label={`ลบรายการ ${line.item_name || index + 1}`}
                                 title="ลบรายการนี้"
-                                className="flex h-8 w-8 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-red-300 hover:text-red-600"
+                                className="flex h-8 w-8 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-danger-border hover:text-danger-text"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -1675,9 +1677,7 @@ export function DeliveryNoteFromQuotationForm({
                     : null
                 }
                 onOpenPriceHistory={
-                  editingLine?.item_id
-                    ? () => setPriceHistoryLineId(editingLine.id)
-                    : undefined
+                  editingLine?.item_id ? () => setPriceHistoryLineId(editingLine.id) : undefined
                 }
                 priceHint={editingLine ? renderPriceHint(editingLine) : null}
               />
@@ -1692,7 +1692,7 @@ export function DeliveryNoteFromQuotationForm({
               active={s2Status === "todo" && s1Eff}
             >
               {saveAttempted && !step2Done && (
-                <div className="mb-3 flex items-start gap-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2 text-label leading-5 text-amber-800">
+                <div className="mb-3 flex items-start gap-2 rounded-control border border-warning-border bg-warning-soft/60 px-3 py-2 text-label leading-5 text-warning-text">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="font-medium">เลือกการแสดงจำนวนเงิน 1 แบบก่อนบันทึก</p>
                 </div>
@@ -1759,7 +1759,7 @@ export function DeliveryNoteFromQuotationForm({
                     <span className="tabular-nums">฿{formatCurrency(tax.total)}</span>
                   </div>
                   {amountDisplay === "full" ? (
-                    <p className="mt-2 text-label leading-5 text-blue-600">
+                    <p className="mt-2 text-label leading-5 text-primary-deep">
                       PDF ใบส่งของจะแสดงราคาและยอดรวมด้วย
                     </p>
                   ) : amountDisplay === "blank" ? (

@@ -38,14 +38,17 @@ const ACTION_ICONS: Record<DocumentActionId, ReactNode> = {
 function Highlight({ text, query }: { text: string; query?: string }) {
   const q = query?.trim();
   if (!q) return <>{text}</>;
-  const terms = q.split(/\s+/).filter(Boolean).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const terms = q
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   if (terms.length === 0) return <>{text}</>;
   const parts = text.split(new RegExp(`(${terms.join("|")})`, "gi"));
   return (
     <>
       {parts.map((part, index) =>
         terms.some((term) => part.toLowerCase() === term.toLowerCase().replace(/\\/g, "")) ? (
-          <mark key={index} className="rounded-control bg-amber-100 px-0.5 text-inherit">
+          <mark key={index} className="rounded-control bg-warning-soft px-0.5 text-inherit">
             {part}
           </mark>
         ) : (
@@ -124,7 +127,7 @@ export function DocumentRow({
 
   return (
     <div
-      className={`group relative border-b border-line-faint last:border-0 transition-colors hover:bg-paper-field ${ isSelected ? "bg-primary/5" : "" }`}
+      className={`group relative border-b border-line-faint last:border-0 transition-colors hover:bg-paper-field ${isSelected ? "bg-primary/5" : ""}`}
     >
       <div
         role="button"
@@ -153,7 +156,7 @@ export function DocumentRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
-              className={`text-body font-semibold ${ isVoided ? "text-ink-300 line-through" : "text-ink-900" }`}
+              className={`text-body font-semibold ${isVoided ? "text-ink-300 line-through" : "text-ink-900"}`}
             >
               <Highlight text={doc.doc_number || "-"} query={searchQuery} />
             </span>
@@ -162,9 +165,7 @@ export function DocumentRow({
             {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form && (
               <StatusBadge label="ฟอร์มเปล่า" tone="amber" />
             )}
-            {overdue && doc.status !== "overdue" && (
-              <StatusBadge label="เกินกำหนด" tone="red" />
-            )}
+            {overdue && doc.status !== "overdue" && <StatusBadge label="เกินกำหนด" tone="red" />}
           </div>
 
           <p className="mt-1 truncate text-body text-ink-700">
@@ -194,12 +195,10 @@ export function DocumentRow({
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="text-label text-ink-300">
-            {displayAmountLabel}
-          </div>
+          <div className="text-label text-ink-300">{displayAmountLabel}</div>
           <Money
             value={displayAmount}
-            className={`text-body font-semibold ${ overdue ? "text-red-700" : isSettled ? "text-green-700" : "text-ink-900" }`}
+            className={`text-body font-semibold ${overdue ? "text-danger-text" : isSettled ? "text-success-text" : "text-ink-900"}`}
           />
 
           <div className="mt-1.5 flex items-center justify-end gap-1">
@@ -249,12 +248,12 @@ export function DocumentRow({
 
           {!menuLoading && isConfirming && (
             <>
-              <div className="border-b border-line-faint px-3 py-1.5 text-label font-medium text-red-600">
+              <div className="border-b border-line-faint px-3 py-1.5 text-label font-medium text-danger-text">
                 {pendingConfirm!.action === "void" ? "ยืนยันการยกเลิก?" : "ยืนยันการลบ?"}
               </div>
               <button
                 role="menuitem"
-                className="flex w-full items-center gap-2 bg-red-500 px-3 py-1.5 text-left text-body text-white hover:bg-red-600"
+                className="flex w-full items-center gap-2 bg-danger px-3 py-1.5 text-left text-body text-white hover:bg-danger"
                 onClick={() => onAction(pendingConfirm!.action)}
               >
                 <Trash2 size={14} />
@@ -276,7 +275,7 @@ export function DocumentRow({
                 <button
                   key={action.id}
                   role="menuitem"
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body ${ action.danger ? "text-red-600 hover:bg-red-50" : "text-ink-700 hover:bg-paper-field" }`}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body ${action.danger ? "text-danger-text hover:bg-danger-soft" : "text-ink-700 hover:bg-paper-field"}`}
                   onClick={() => onAction(action.id)}
                 >
                   {ACTION_ICONS[action.id]}

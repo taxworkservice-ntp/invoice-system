@@ -24,11 +24,13 @@ export function SkeletonCard({ className = "" }: SkeletonProps) {
 
 export function SkeletonTable({ className = "" }: SkeletonProps) {
   return (
-    <div className={`bg-white border-[0.5px] border-card-border rounded-card overflow-hidden ${className}`}>
+    <div
+      className={`bg-white border-[0.5px] border-card-border rounded-card overflow-hidden ${className}`}
+    >
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className={`flex items-center gap-4 px-4 py-3 ${ i < 4 ? "border-b border-line-faint" : "" }`}
+          className={`flex items-center gap-4 px-4 py-3 ${i < 4 ? "border-b border-line-faint" : ""}`}
         >
           <Skeleton className="h-4 w-1/4" />
           <Skeleton className="h-4 w-1/3" />

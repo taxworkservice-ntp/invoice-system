@@ -35,11 +35,7 @@ function parseAmount(value: string): number | null {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-label font-semibold text-ink-300">
-      {children}
-    </div>
-  );
+  return <div className="text-label font-semibold text-ink-300">{children}</div>;
 }
 
 /**
@@ -154,7 +150,7 @@ export function DocumentFilterSheet({
                   key={option.value}
                   type="button"
                   onClick={() => patch({ aging: option.value })}
-                  className={`rounded-full border px-3 py-1 text-label transition-colors ${ draft.aging === option.value ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-line-strong" }`}
+                  className={`rounded-full border px-3 py-1 text-label transition-colors ${draft.aging === option.value ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-line-strong"}`}
                 >
                   {option.label}
                 </button>

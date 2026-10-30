@@ -39,14 +39,14 @@ export function EditableDocNumber({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-control border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-body font-mono text-ink-900 placeholder:text-ink-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+        className="w-full rounded-control border border-warning-border bg-warning-soft px-2.5 py-1.5 text-body font-mono text-ink-900 placeholder:text-ink-400 focus:border-warning focus:outline-none focus:ring-1 focus:ring-warning/20"
       />
       {autoGenerate && (
         <button
           type="button"
           onClick={handleGenerate}
           disabled={generating}
-          className="shrink-0 rounded-control border border-amber-300 bg-amber-100 px-2.5 py-1.5 text-label font-medium text-amber-800 hover:bg-amber-200 disabled:opacity-50"
+          className="shrink-0 rounded-control border border-warning-border bg-warning-soft px-2.5 py-1.5 text-label font-medium text-warning-text hover:bg-warning-soft disabled:opacity-50"
         >
           {generating ? "..." : "สร้างเลขที่"}
         </button>
@@ -104,7 +104,7 @@ export function EditableDocNumberInline({
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            className="w-48 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-body font-mono text-ink-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-48 rounded border border-warning-border bg-warning-soft px-1.5 py-0.5 text-body font-mono text-ink-900 focus:border-warning focus:outline-none focus:ring-1 focus:ring-warning/20"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSave();
@@ -115,7 +115,7 @@ export function EditableDocNumberInline({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="text-label font-medium text-amber-700 hover:text-amber-900 disabled:opacity-50"
+            className="text-label font-medium text-warning-text hover:text-warning-text disabled:opacity-50"
           >
             บันทึก
           </button>
@@ -127,14 +127,14 @@ export function EditableDocNumberInline({
             ยกเลิก
           </button>
         </span>
-        {error && <span className="text-label font-normal text-red-600">{error}</span>}
+        {error && <span className="text-label font-normal text-danger-text">{error}</span>}
       </span>
     );
   }
 
   return (
     <span
-      className={`cursor-pointer border-b border-dashed border-amber-400 hover:border-amber-600 ${className}`}
+      className={`cursor-pointer border-b border-dashed border-warning hover:border-warning ${className}`}
       onClick={() => {
         setDraft(value);
         setEditing(true);

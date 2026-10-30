@@ -11,7 +11,9 @@ interface SwitchProps {
 /** Small CSS-only toggle switch for on/off settings. */
 export function Switch({ checked, onChange, label, disabled, id }: SwitchProps) {
   return (
-    <label className={`inline-flex items-center gap-2 ${disabled ? "opacity-60" : "cursor-pointer"}`}>
+    <label
+      className={`inline-flex items-center gap-2 ${disabled ? "opacity-60" : "cursor-pointer"}`}
+    >
       <span className="relative inline-block align-middle">
         <input
           id={id}

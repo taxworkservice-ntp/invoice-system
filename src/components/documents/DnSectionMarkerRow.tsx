@@ -18,7 +18,9 @@ export function LineMoveButtons({
   className,
 }: LineMoveButtonsProps) {
   return (
-    <div className={`flex shrink-0 flex-col overflow-hidden rounded-control border border-card-border ${className ?? ""}`}>
+    <div
+      className={`flex shrink-0 flex-col overflow-hidden rounded-control border border-card-border ${className ?? ""}`}
+    >
       <button
         type="button"
         onClick={onMoveUp}
@@ -88,7 +90,9 @@ export function DnSectionMarkerRow({
       ? "หัวข้อนี้ยังไม่มีรายการอยู่ข้างใต้ — จะไม่แสดงบนใบส่งของจนกว่าจะมีรายการ"
       : null;
   return (
-    <div className={`rounded-card border border-dashed p-3 ${warning ? "border-amber-300 bg-amber-50/60" : "border-card-border bg-paper-soft/60"}`}>
+    <div
+      className={`rounded-card border border-dashed p-3 ${warning ? "border-warning-border bg-warning-soft/60" : "border-card-border bg-paper-soft/60"}`}
+    >
       <div className="flex items-start gap-2">
         {sectionNumber ? (
           <span className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-label font-semibold text-primary">
@@ -113,17 +117,18 @@ export function DnSectionMarkerRow({
         <button
           type="button"
           onClick={onRemove}
-          className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-red-300 hover:text-red-600"
+          className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-danger-border hover:text-danger-text"
           title="ลบหัวข้อกลุ่มนี้"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
       {warning ? (
-        <p className="mt-1 text-label leading-4 font-medium text-amber-700">{warning}</p>
+        <p className="mt-1 text-label leading-4 font-medium text-warning-text">{warning}</p>
       ) : (
         <p className="mt-1 text-label leading-4 text-ink-400">
-          บรรทัดนี้ไม่คิดมูลค่า — จะพิมพ์เป็นหัวข้อกลุ่มเหนือรายการในใบส่งของ และติดไปกับใบกำกับภาษีที่ออกต่อจากใบนี้
+          บรรทัดนี้ไม่คิดมูลค่า — จะพิมพ์เป็นหัวข้อกลุ่มเหนือรายการในใบส่งของ
+          และติดไปกับใบกำกับภาษีที่ออกต่อจากใบนี้
           {itemCount != null && itemCount > 0 ? ` · กลุ่มนี้มี ${itemCount} รายการแล้ว` : ""}
         </p>
       )}

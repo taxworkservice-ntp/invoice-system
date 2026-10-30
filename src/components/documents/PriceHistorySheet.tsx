@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Skeleton } from "../ui/Skeleton";
-import { fetchPriceHistory, priceHistoryDocTypeLabel, type PriceHistoryRow } from "../../lib/priceHistory";
+import {
+  fetchPriceHistory,
+  priceHistoryDocTypeLabel,
+  type PriceHistoryRow,
+} from "../../lib/priceHistory";
 import { useDocDate } from "../YearEraProvider";
 
 interface PriceHistorySheetProps {
@@ -77,14 +81,14 @@ export function PriceHistorySheet({
           <button
             type="button"
             onClick={() => setFilter("customer")}
-            className={`flex-1 rounded-control border px-3 py-2 text-label transition-colors ${ filter === "customer" ? "border-primary bg-primary-soft font-medium text-primary-deep" : "border-card-border bg-white text-ink-600" }`}
+            className={`flex-1 rounded-control border px-3 py-2 text-label transition-colors ${filter === "customer" ? "border-primary bg-primary-soft font-medium text-primary-deep" : "border-card-border bg-white text-ink-600"}`}
           >
             ลูกค้านี้{customerName ? ` · ${customerName}` : ""}
           </button>
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`flex-1 rounded-control border px-3 py-2 text-label transition-colors ${ filter === "all" ? "border-primary bg-primary-soft font-medium text-primary-deep" : "border-card-border bg-white text-ink-600" }`}
+            className={`flex-1 rounded-control border px-3 py-2 text-label transition-colors ${filter === "all" ? "border-primary bg-primary-soft font-medium text-primary-deep" : "border-card-border bg-white text-ink-600"}`}
           >
             ลูกค้าทั้งหมด
           </button>
@@ -94,7 +98,11 @@ export function PriceHistorySheet({
       {loading ? (
         <div className="divide-y divide-line-faint" role="status" aria-label="กำลังโหลดประวัติราคา">
           {[0, 1, 2].map((row) => (
-            <div key={row} className="flex items-center justify-between gap-3 py-3" aria-hidden="true">
+            <div
+              key={row}
+              className="flex items-center justify-between gap-3 py-3"
+              aria-hidden="true"
+            >
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Skeleton className="h-4 w-2/5" />
                 <Skeleton className="h-3 w-1/3" />
@@ -104,7 +112,9 @@ export function PriceHistorySheet({
           ))}
         </div>
       ) : error ? (
-        <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2.5 text-label text-red-700">{error}</div>
+        <div className="rounded-control border border-danger-border bg-danger-soft px-3 py-2.5 text-label text-danger-text">
+          {error}
+        </div>
       ) : rows.length === 0 ? (
         <div className="rounded-control border border-dashed border-card-border bg-paper-tint px-3 py-6 text-center text-label text-ink-300">
           {filter === "customer" ? (
@@ -173,14 +183,14 @@ export function PriceHistorySheet({
           ))}
         </div>
       )}
-      <p className="mt-3 text-center text-label text-ink-400">แตะ “ใช้ราคานี้” เพื่อใส่ราคาในบรรทัดนี้ · แตะเลขที่เอกสารเพื่อเปิดงานขายในแท็บใหม่</p>
+      <p className="mt-3 text-center text-label text-ink-400">
+        แตะ “ใช้ราคานี้” เพื่อใส่ราคาในบรรทัดนี้ · แตะเลขที่เอกสารเพื่อเปิดงานขายในแท็บใหม่
+      </p>
 
-      <Modal
-        open={pendingPrice != null}
-        onClose={() => setPendingPrice(null)}
-        title="ใช้ราคานี้?"
-      >
-        <p className="text-body text-ink-700">฿{formatPrice(pendingPrice ?? 0)} · {itemName}</p>
+      <Modal open={pendingPrice != null} onClose={() => setPendingPrice(null)} title="ใช้ราคานี้?">
+        <p className="text-body text-ink-700">
+          ฿{formatPrice(pendingPrice ?? 0)} · {itemName}
+        </p>
         {currentPrice != null && Math.abs(currentPrice - (pendingPrice ?? 0)) >= 0.005 ? (
           <p className="mt-2 text-label leading-5 text-ink-500">
             ระบบจะแทนที่ราคาปัจจุบัน ฿{formatPrice(currentPrice)} ของรายการนี้

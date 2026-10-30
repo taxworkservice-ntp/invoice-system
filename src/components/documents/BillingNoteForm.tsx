@@ -564,7 +564,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
           .single();
 
         if (dealError || !createdDeal) {
-          const message = dealError?.message || "ไม่สามารถสร้างดีลสำหรับใบวางบิลได้";
+          const message = dealError?.message || "ไม่สามารถสร้างงานขายสำหรับใบวางบิลได้";
           setErrors((prev) => ({ ...prev, general: message }));
           toast.error(message);
           return null;

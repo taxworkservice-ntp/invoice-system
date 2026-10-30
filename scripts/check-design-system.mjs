@@ -24,6 +24,54 @@ const EXEMPT = [/components[\\/]print[\\/]/, /[\\/]print\.tsx$/];
 /** Only the shell (and the token that defines it) may name a page width. */
 const WIDTH_OWNERS = [/design[\\/]tokens\.ts$/, /components[\\/]layout[\\/]/];
 
+/**
+ * Strict rules apply to the surfaces that have completed the consistency
+ * sweep. Add a path here when a slice lands; never add a file to silence a
+ * new violation.
+ */
+const STRICT_SCOPE = [
+  /app[\\/]\(client\)[\\/]deals[\\/]/,
+  /app[\\/]\(client\)[\\/]documents[\\/]/,
+  /app[\\/]\(client\)[\\/]home\.tsx$/,
+  /components[\\/]deal[\\/]/,
+  /components[\\/]documents[\\/]/,
+  /components[\\/]payments[\\/]/,
+  /components[\\/]ui[\\/]/,
+];
+
+const STRICT_NATIVE_SELECT_SCOPE = [
+  /app[\\/]\(client\)[\\/]deals[\\/]/,
+  /app[\\/]\(client\)[\\/]documents[\\/]/,
+  /app[\\/]\(client\)[\\/]home\.tsx$/,
+  /components[\\/]deal[\\/]/,
+  /components[\\/]documents[\\/]/,
+  /components[\\/]payments[\\/]/,
+];
+
+const STRICT_RULES = [
+  {
+    name: "raw semantic colour",
+    re: /\b(?:bg|text|border|ring|from|to|via)-(?:amber|blue|green|red|emerald|violet|purple|orange|yellow)-[0-9]+(?:\/[0-9]+)?/g,
+    hint: "use warning / success / danger / primary tokens",
+  },
+  {
+    name: "native select",
+    re: /<select\b/g,
+    hint: "use Select from components/ui",
+    scope: STRICT_NATIVE_SELECT_SCOPE,
+  },
+  {
+    name: "hand-rolled status pill",
+    re: /\brounded-control\b[^"'`]*\bbg-(?:paid|draft|sent|overdue|pending|voided)-bg\b/g,
+    hint: "use StatusPill / StatusBadge",
+  },
+  {
+    name: "hand-rolled status pill",
+    re: /\bbg-(?:paid|draft|sent|overdue|pending|voided)-bg\b[^"'`]*\brounded-control\b/g,
+    hint: "use StatusPill / StatusBadge",
+  },
+];
+
 const RULES = [
   {
     name: "arbitrary px font size",
@@ -85,6 +133,24 @@ for (const file of walk(ROOT)) {
   lines.forEach((line, index) => {
     for (const rule of RULES) {
       if (rule.allow?.some((re) => re.test(file))) continue;
+      rule.re.lastIndex = 0;
+      const match = rule.re.exec(line);
+      if (match) {
+        violations.push({
+          file: path.relative(process.cwd(), file),
+          line: index + 1,
+          rule: rule.name,
+          match: match[0],
+          hint: rule.hint,
+        });
+      }
+    }
+  });
+
+  if (!STRICT_SCOPE.some((re) => re.test(file))) continue;
+  lines.forEach((line, index) => {
+    for (const rule of STRICT_RULES) {
+      if (rule.scope && !rule.scope.some((re) => re.test(file))) continue;
       rule.re.lastIndex = 0;
       const match = rule.re.exec(line);
       if (match) {

@@ -23,7 +23,9 @@ function getUsageBillDetail(note: string) {
   const currentReading = note.match(/เลขปัจจุบัน:\s*([\d,.]+)/)?.[1]?.replace(/,/g, "") || "";
   const previousReading = note.match(/เลขก่อนหน้า:\s*([\d,.]+)/)?.[1]?.replace(/,/g, "") || "";
   const periodMatch = note.match(/รอบบิล:\s*([0-9-]+)\s*-\s*([0-9-]+)/);
-  const rateMatch = note.match(/ใช้ไป:[\s\d,.]+\s*[\d.,]+\s*\S*\s*x\s*฿([\d,.]+)/) || note.match(/ราคาต่อหน่วย:\s*([\d,.]+)/);
+  const rateMatch =
+    note.match(/ใช้ไป:[\s\d,.]+\s*[\d.,]+\s*\S*\s*x\s*฿([\d,.]+)/) ||
+    note.match(/ราคาต่อหน่วย:\s*([\d,.]+)/);
   const usageMatch = note.match(/ใช้ไป:\s*[\d,.]+\s*(.+)$/m);
   return {
     currentReading,
@@ -131,11 +133,18 @@ export default function EditUtilityBillPage() {
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id, userId]);
 
   const usage = useMemo(() => {
-    return Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000);
+    return Math.max(
+      0,
+      Math.round(
+        (parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000,
+      ) / 1000,
+    );
   }, [utilityCurrentReading, utilityPreviousReading]);
 
   const utilityValidation = useMemo(() => {
@@ -143,18 +152,29 @@ export default function EditUtilityBillPage() {
     const current = parseAmount(utilityCurrentReading);
     const rate = parseAmount(utilityRate);
     return {
-      readingError: utilityPreviousReading !== "" && utilityCurrentReading !== "" && current <= previous
-        ? "เลขปัจจุบันต้องมากกว่าเลขก่อนหน้า" : undefined,
-      rateError: utilityRate !== "" && rate <= 0
-        ? "กรุณาระบุราคา/หน่วยที่มากกว่า 0" : undefined,
-      periodError: utilityPeriodStart && utilityPeriodEnd && utilityPeriodEnd < utilityPeriodStart
-        ? "วันสิ้นสุดต้องมาหลังวันเริ่มต้น" : undefined,
+      readingError:
+        utilityPreviousReading !== "" && utilityCurrentReading !== "" && current <= previous
+          ? "เลขปัจจุบันต้องมากกว่าเลขก่อนหน้า"
+          : undefined,
+      rateError: utilityRate !== "" && rate <= 0 ? "กรุณาระบุราคา/หน่วยที่มากกว่า 0" : undefined,
+      periodError:
+        utilityPeriodStart && utilityPeriodEnd && utilityPeriodEnd < utilityPeriodStart
+          ? "วันสิ้นสุดต้องมาหลังวันเริ่มต้น"
+          : undefined,
     };
-  }, [utilityPreviousReading, utilityCurrentReading, utilityRate, utilityPeriodStart, utilityPeriodEnd]);
+  }, [
+    utilityPreviousReading,
+    utilityCurrentReading,
+    utilityRate,
+    utilityPeriodStart,
+    utilityPeriodEnd,
+  ]);
 
   const handleUtilityServiceChange = (value: string) => {
     setUtilityServiceName(value);
-    const matched = serviceItems.find((item) => item.name.trim().toLowerCase() === value.trim().toLowerCase());
+    const matched = serviceItems.find(
+      (item) => item.name.trim().toLowerCase() === value.trim().toLowerCase(),
+    );
     if (matched) {
       setUtilityServiceItemId(matched.id);
       setUtilityRate(String(matched.unit_price));
@@ -205,7 +225,10 @@ export default function EditUtilityBillPage() {
     try {
       const serviceName = utilityServiceName.trim();
       const unit = utilityUnit.trim() || "หน่วย";
-      const catalogService = selectedUtilityService || serviceItems.find((item) => item.name.trim().toLowerCase() === serviceName.toLowerCase()) || null;
+      const catalogService =
+        selectedUtilityService ||
+        serviceItems.find((item) => item.name.trim().toLowerCase() === serviceName.toLowerCase()) ||
+        null;
       const lineNote = [
         "[USAGE_BILL]",
         `รอบบิล: ${utilityPeriodStart} - ${utilityPeriodEnd}`,
@@ -278,7 +301,7 @@ export default function EditUtilityBillPage() {
     return (
       <AppShell title="แก้ไข" showBack>
         <div className="p-4">
-          <p className="text-body text-red-600">{error || "ไม่พบเอกสาร"}</p>
+          <p className="text-body text-danger-text">{error || "ไม่พบเอกสาร"}</p>
           <Button variant="secondary" className="mt-3" onClick={() => navigate(-1)}>
             กลับ
           </Button>
@@ -291,7 +314,7 @@ export default function EditUtilityBillPage() {
     <AppShell title="แก้ไขออกบิลประจำรอบ" showBack>
       <div className="space-y-4">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-control text-body text-red-600">
+          <div className="p-3 bg-danger-soft border border-danger-border rounded-control text-body text-danger-text">
             {error}
           </div>
         )}
@@ -304,7 +327,9 @@ export default function EditUtilityBillPage() {
                 {doc.doc_number} — {(doc as any).customer?.name || "ไม่ระบุลูกค้า"}
               </p>
             </div>
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-label font-medium text-amber-700">ฉบับร่าง</span>
+            <span className="rounded-full bg-warning-soft px-2.5 py-1 text-label font-medium text-warning-text">
+              ฉบับร่าง
+            </span>
           </div>
         </Card>
 
@@ -380,11 +405,18 @@ export default function EditUtilityBillPage() {
                   error={utilityValidation.readingError}
                 />
               </div>
-              {(parseAmount(utilityCurrentReading) > 0 || parseAmount(utilityPreviousReading) > 0) && parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && (
-                <p className="mt-1 text-label text-ink-500">
-                  ใช้ไป {usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"}
-                </p>
-              )}
+              {(parseAmount(utilityCurrentReading) > 0 ||
+                parseAmount(utilityPreviousReading) > 0) &&
+                parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && (
+                  <p className="mt-1 text-label text-ink-500">
+                    ใช้ไป{" "}
+                    {usage.toLocaleString("th-TH", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 3,
+                    })}{" "}
+                    {utilityUnit || "หน่วย"}
+                  </p>
+                )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -410,26 +442,35 @@ export default function EditUtilityBillPage() {
             <div className="flex items-center justify-between gap-3">
               <span className="text-body text-ink-600">ยอดก่อนภาษี</span>
               <span className="text-title font-semibold text-ink-900">
-                ฿{(usage * parseAmount(utilityRate)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ฿
+                {(usage * parseAmount(utilityRate)).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
               </span>
             </div>
             {usage > 0 && parseAmount(utilityRate) > 0 && (
               <div className="mt-1 text-label text-ink-500">
-                {usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"} × ฿{parseAmount(utilityRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
+                {usage.toLocaleString("th-TH", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 3,
+                })}{" "}
+                {utilityUnit || "หน่วย"} × ฿
+                {parseAmount(utilityRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                /หน่วย
               </div>
             )}
           </div>
         </Card>
 
         <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => navigate(`/deals/${doc.deal_id}`)}
+          >
             ยกเลิก
           </Button>
-          <Button
-            className="flex-1"
-            disabled={saving}
-            onClick={handleSave}
-          >
+          <Button className="flex-1" disabled={saving} onClick={handleSave}>
             {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
           </Button>
         </div>

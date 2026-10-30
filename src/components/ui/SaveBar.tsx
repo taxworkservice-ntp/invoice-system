@@ -21,8 +21,8 @@ interface SaveBarProps {
 
 const TONE_CLASS: Record<SaveBarTone, string> = {
   muted: "text-ink-400",
-  success: "text-green-600",
-  error: "text-red-500",
+  success: "text-success-text",
+  error: "text-danger-text",
   dirty: "text-ink-300",
 };
 

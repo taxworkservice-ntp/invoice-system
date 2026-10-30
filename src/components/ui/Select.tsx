@@ -1,14 +1,14 @@
 import React, { useId } from "react";
-
 export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> {
   label?: string;
   error?: string;
   size?: "sm" | "md";
+  containerClassName?: string;
   children: React.ReactNode;
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, size = "md", className = "", id, children, ...props },
+  { label, error, size = "md", className = "", containerClassName = "", id, children, ...props },
   ref,
 ) {
   const generatedId = useId();
@@ -17,7 +17,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
   const sizes = size === "sm" ? "px-2.5 py-1.5 text-label" : "px-3 py-2 text-body";
 
   return (
-    <div>
+    <div className={containerClassName}>
       {label ? (
         <label htmlFor={fieldId} className="mb-1 block text-label font-medium text-ink-600">
           {label}
