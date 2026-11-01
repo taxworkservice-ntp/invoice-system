@@ -704,6 +704,13 @@ export default function HomePage() {
     window.localStorage.setItem("home.done.month", doneMonth);
     window.localStorage.setItem("home.done.hideCombined", hideCombinedDone ? "1" : "0");
   }, [doneSort, doneYear, doneMonth, hideCombinedDone]);
+  const [homeTab, setHomeTab] = useState<"active" | "done">(() => {
+    if (typeof window === "undefined") return "active";
+    return window.localStorage.getItem("home.tab") === "done" ? "done" : "active";
+  });
+  useEffect(() => {
+    window.localStorage.setItem("home.tab", homeTab);
+  }, [homeTab]);
   const [pullDistance, setPullDistance] = useState(0);
   const [showNudge, setShowNudge] = useState<"profile" | "customer" | "items" | null>(null);
   const [nudgesLoaded, setNudgesLoaded] = useState(false);
@@ -1092,6 +1099,16 @@ export default function HomePage() {
     [deals, hideCombinedDone],
   );
 
+  // Stable tab counts (unaffected by search text) so the tab bar never jitters
+  // while typing. recentlyDone is search-filtered; this is the unfiltered base.
+  const doneTotal = useMemo(
+    () =>
+      deals.filter(
+        (deal) => deal.isDone && !deal.isEmpty && !(hideCombinedDone && isCombinedDeal(deal)),
+      ).length,
+    [deals, hideCombinedDone],
+  );
+
   const clearDoneFilters = () => {
     setDoneYear("all");
     setDoneMonth("all");
@@ -1278,11 +1295,6 @@ export default function HomePage() {
           />
         ) : (
           <>
-            <SummaryRow
-              items={summaryCards.map((card) => ({ ...card }))}
-              onCardTap={(preset) => setHomeFilter(preset as HomeFilter)}
-            />
-
             {deals.length > 3 && (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
@@ -1299,7 +1311,51 @@ export default function HomePage() {
               </div>
             )}
 
-            <section>
+            <div
+              role="tablist"
+              aria-label="งานขาย"
+              className="sticky top-0 z-10 -mx-1 bg-page-bg px-1 py-2"
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                e.preventDefault();
+                setHomeTab((t) => (t === "active" ? "done" : "active"));
+              }}
+            >
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={homeTab === "active"}
+                  onClick={() => setHomeTab("active")}
+                  className={`min-h-11 flex-1 rounded-control border px-3 py-2 text-label font-medium transition-colors md:min-h-0 ${homeTab === "active" ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
+                >
+                  กำลังดำเนินการ
+                  <span className="ml-1 opacity-70">{activeDealsAll.length}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={homeTab === "done"}
+                  onClick={() => setHomeTab("done")}
+                  className={`min-h-11 flex-1 rounded-control border px-3 py-2 text-label font-medium transition-colors md:min-h-0 ${homeTab === "done" ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
+                >
+                  เสร็จสิ้น
+                  <span className="ml-1 opacity-70">{doneTotal}</span>
+                </button>
+              </div>
+            </div>
+
+            {homeTab === "active" ? (
+              <>
+                <SummaryRow
+                  items={summaryCards.map((card) => ({ ...card }))}
+                  onCardTap={(preset) => {
+                    setHomeTab("active");
+                    setHomeFilter(preset as HomeFilter);
+                  }}
+                />
+
+                <section role="tabpanel" aria-label="กำลังดำเนินการ">
               <div className="mb-3 space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-primary" />
@@ -1520,12 +1576,17 @@ export default function HomePage() {
                 </div>
               )}
             </section>
-
-            {hasAnyDone && (
-              <>
-                <div className="border-t border-card-border pt-1" />
-                <section>
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              </>
+            ) : (
+              <section role="tabpanel" aria-label="เสร็จสิ้น">
+                {!hasAnyDone && recentlyDone.length === 0 ? (
+                  <EmptyState
+                    title="ยังไม่มีงานที่เสร็จสิ้น"
+                    description="งานที่ปิดจบแล้วจะแสดงที่นี่"
+                  />
+                ) : (
+                  <>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-emerald-500" />
                       <div className="text-label font-semibold text-emerald-700">
@@ -1752,18 +1813,26 @@ export default function HomePage() {
                                           : deal.itemSummary || "-"}
                                       </span>
                                     </td>
-                                    <td className="px-3 py-2">
+                                    <td className="max-w-[185px] overflow-hidden whitespace-nowrap px-3 py-2">
                                       {deal.isAllVoided ? (
                                         <span className="inline-flex rounded-control bg-ink-50 px-2 py-0.5 text-label font-semibold text-ink-500">
                                           ยกเลิก
                                         </span>
                                       ) : (
                                         <div className="space-y-1">
-                                          <div className="flex flex-wrap gap-1">
+                                          <div
+                                            className="flex flex-nowrap gap-1 overflow-hidden"
+                                            title={getDoneDocBadges(deal.documents)
+                                              .map(
+                                                (docType) =>
+                                                  DOC_TYPE_LABELS[docType]?.th || docType,
+                                              )
+                                              .join(" · ")}
+                                          >
                                             {getDoneDocBadges(deal.documents).map((docType) => (
                                               <span
                                                 key={docType}
-                                                className={`rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
+                                                className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
                                                 title={DOC_TYPE_LABELS[docType]?.th || docType}
                                               >
                                                 {DOC_TYPE_SHORT[docType] ||
@@ -1864,8 +1933,8 @@ export default function HomePage() {
                       />
                     </div>
                   )}
+                  </>
                 </section>
-              </>
             )}
           </>
         )}
