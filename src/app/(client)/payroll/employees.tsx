@@ -1368,14 +1368,19 @@ export default function EmployeesPage() {
                   <option value="active">ทำงาน</option>
                   <option value="inactive">ลาออก</option>
                 </Select>
-                <Select
-                  label="ประกันสังคม"
-                  value={modal.form.sso_registered ? "registered" : "unregistered"}
-                  onChange={(e) => updateField("sso_registered", e.target.value === "registered")}
-                >
-                  <option value="registered">ลงทะเบียนแล้ว (ภ.ง.ด.1)</option>
-                  <option value="unregistered">ไม่ลงทะเบียน (ภ.ง.ด.3 · ค่าจ้างทำของ 3%)</option>
-                </Select>
+                <div>
+                  <Select
+                    label="ประกันสังคม"
+                    value={modal.form.sso_registered ? "registered" : "unregistered"}
+                    onChange={(e) => updateField("sso_registered", e.target.value === "registered")}
+                  >
+                    <option value="registered">ลงทะเบียนแล้ว (ภ.ง.ด.1)</option>
+                    <option value="unregistered">ไม่ลงทะเบียน (ภ.ง.ด.3 · ค่าจ้างทำของ 3%)</option>
+                  </Select>
+                  <p className="mt-1 text-label text-ink-400">
+                    ปิด = ฟรีแลนซ์/สัญญาจ้าง — ไม่มี SSO, ภาษี 3% ทุกงวด, ไม่รวมยอดรายเดือน
+                  </p>
+                </div>
                 {modal.form.status === "inactive" && (
                   <Input
                     label="วันที่ลาออก"

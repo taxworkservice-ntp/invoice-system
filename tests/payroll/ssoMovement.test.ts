@@ -114,7 +114,7 @@ describe("sso movement rows", () => {
     expect(left.rows[0].deadline).toBe("2027-01-15");
   });
 
-  it("skips daily, contractors, and over-60-at-hire", () => {
+  it("includes daily insured staff; skips contractors and over-60-at-hire", () => {
     const built = buildSsoMovementRows(
       [
         employee({
@@ -141,8 +141,10 @@ describe("sso movement rows", () => {
       8,
       "joiners",
     );
-    expect(built.rows).toEqual([]);
-    expect(built.skippedDaily).toBe(1);
+    // Registration is pay-type agnostic: the daily hire is listed.
+    expect(built.rows.map((r) => r.employeeCode)).toEqual(["EMP020"]);
+    expect(built.rows[0].employmentType).toBe("daily");
+    expect(built.skippedDaily).toBe(0);
     expect(built.skippedContract).toBe(1);
     expect(built.skippedOver60).toBe(1);
   });
@@ -177,6 +179,27 @@ describe("sso movement rows", () => {
     const headerValues = ws.getRow(4).values as unknown[];
     expect(headerValues.slice(1)).toEqual(SSO_MOVEMENT_HEADERS_JOINERS);
     expect(ws.getRow(5).getCell(2).value).toBe("EMP001");
+    expect(ws.getRow(5).getCell(8).value).toBe("รายเดือน");
+
+    const dailyBuilt = buildSsoMovementRows(
+      [
+        employee({
+          id: "d",
+          employee_code: "EMP040",
+          salary_type: "daily",
+          start_date: "2026-08-10",
+        }),
+      ],
+      2026,
+      8,
+      "joiners",
+    );
+    const wbDaily = buildSsoMovementWorkbook(dailyBuilt.rows, {
+      direction: "joiners",
+      year: 2026,
+      month: 8,
+    });
+    expect(wbDaily.getWorksheet("เข้าใหม่")!.getRow(5).getCell(8).value).toBe("รายวัน");
 
     const wbOut = buildSsoMovementWorkbook([], { direction: "leavers", year: 2026, month: 8 });
     const wsOut = wbOut.getWorksheet("ลาออก")!;

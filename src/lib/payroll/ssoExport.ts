@@ -235,6 +235,8 @@ export interface SsoMovementRow {
   lastName: string;
   taxId: string;
   position: string;
+  /** Monthly or daily hire — SSO registration is pay-type agnostic. */
+  employmentType: "monthly" | "daily";
   /** Hire date (joiners) or exit date (leavers), ISO YYYY-MM-DD. */
   eventDate: string;
   /** Filing deadline, ISO: hire +30d (สปส.1-03) or 15th of next month (สปส.6-09). */
@@ -304,6 +306,7 @@ function toMovementRow(
     lastName: name.lastName,
     taxId: (emp.tax_id || "").replace(/\D/g, ""),
     position: emp.position || "—",
+    employmentType: emp.salary_type,
     eventDate,
     deadline,
   };
@@ -311,9 +314,10 @@ function toMovementRow(
 
 /**
  * Monthly in/out movement for SSO registration reference (สปส.1-03 joiners,
- * สปส.6-09 leavers). Monthly staff only (business choice — the roster wage
- * exclusion does not apply here, registration is pay-type agnostic, but the
- * client files daily staff through a separate practice).
+ * สปส.6-09 leavers). Registration is pay-type agnostic, so monthly AND daily
+ * insured staff are listed (the roster *wage* exclusion does not apply here —
+ * no wage is filed, only identity + event date). Contractors (ภ.ง.ด.3) and
+ * hires already 60+ on their start date are never insured and are skipped.
  * Sorted by event date, then employee code.
  */
 export function buildSsoMovementRows(
@@ -327,17 +331,14 @@ export function buildSsoMovementRows(
   const end = `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
   const rows: SsoMovementRow[] = [];
   const errors: SsoRowError[] = [];
-  let skippedDaily = 0;
+  // Kept for caller compatibility — daily insured staff are listed, never skipped.
+  const skippedDaily = 0;
   let skippedContract = 0;
   let skippedOver60 = 0;
 
   for (const emp of employees) {
     const eventDate = direction === "joiners" ? emp.start_date : (emp.end_date ?? "");
     if (!eventDate || eventDate < start || eventDate > end) continue;
-    if (emp.salary_type !== "monthly") {
-      skippedDaily += 1;
-      continue;
-    }
     if (emp.sso_registered === false) {
       skippedContract += 1;
       continue;
@@ -392,7 +393,6 @@ export interface Sso101Row extends SsoMovementRow {
   dateOfBirth: string;
   address: string;
   wage: number;
-  employmentType: string;
 }
 
 export interface Sso101Build {
@@ -420,10 +420,10 @@ export const SSO101_HEADERS = [
 ];
 
 /**
- * สปส.1-01 new-insured registration handover: same monthly-joiner scope as
- * สปส.1-03 (start_date in month, +30d deadline) plus the registration fields
- * the form needs — DOB, address, wage. Monthly staff only, same business
- * choice as the movement report.
+ * สปส.1-01 new-insured registration handover: same joiner scope as
+ * สปส.1-03 (start_date in month, +30d deadline, monthly and daily) plus the
+ * registration fields the form needs — DOB, address, wage. The wage prices
+ * the employee's own pay type (monthly base, daily rate).
  */
 export function buildSso101Rows(employees: Employee[], year: number, month: number): Sso101Build {
   const movement = buildSsoMovementRows(employees, year, month, "joiners");
@@ -437,7 +437,6 @@ export function buildSso101Rows(employees: Employee[], year: number, month: numb
       dateOfBirth: emp.date_of_birth ?? "",
       address: (emp.address ?? "").trim() || "—",
       wage: Number(emp.base_salary) || 0,
-      employmentType: emp.salary_type === "daily" ? "รายวัน" : "รายเดือน",
     });
   }
   rows.sort((a, b) =>
@@ -495,7 +494,7 @@ export function buildSso101Workbook(
       "",
       row.address,
       row.position,
-      row.employmentType,
+      row.employmentType === "daily" ? "รายวัน" : "รายเดือน",
       "",
       row.wage,
       "",
@@ -556,7 +555,7 @@ export function buildSsoMovementWorkbook(
       row.lastName,
       "",
       row.position,
-      "รายเดือน",
+      row.employmentType === "daily" ? "รายวัน" : "รายเดือน",
       "",
       "",
     ]);
