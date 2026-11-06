@@ -16,10 +16,12 @@ token/control sweep. No database, schema, money, stock or print changes.
 | `db14d08` | `chore(design): enforce strict tokens on migrated surfaces`   |
 | `354398f` | `refactor(deals): extract detail surfaces and branch billing` |
 | `16014fc` | `chore(design): finish app-wide token and control sweep`      |
+| `cc39c32` | `fix(deals): close workflow dead ends and false-done states`  |
 
 Rollback tags: `checkpoint/pre-deal-workflow-2026-10-30`,
 `checkpoint/post-deal-workflow`, `checkpoint/post-ui-consistency`,
-`checkpoint/post-deal-loop`, `checkpoint/app-consistency`.
+`checkpoint/post-deal-loop`, `checkpoint/app-consistency`,
+`checkpoint/workflow-gaps-closed`.
 
 ## UI kit
 
@@ -105,6 +107,32 @@ e2e/combined-billing.spec.ts` — 19/19 passed.
   admin-API limitation (no service-role key), not a UI regression.
 - Visual baselines were not refreshed: the shared test workspace has accumulated
   QA deals, so a recapture must happen on a clean workspace.
+
+## Workflow gap fixes (`cc39c32`)
+
+Closed the 7 dead-end / false-done states found in the pre-deploy audit:
+
+- Overdue `quotation` / `invoice` now offer the same actions as `sent`
+  (danger-labelled when past due); overdue invoices also keep the
+  no-billing-note collect shortcut.
+- Orphaned `in_billing` invoices (draft note voided/deleted) fall back to
+  "ออกใบวางบิล" instead of a dead end.
+- `allDone` requires a real closing document — a lone converted paper or a
+  lone credit/debit note can no longer fake "เสร็จสิ้น". Normal flows
+  (paid invoice, generated receipt, post-payment CN) are unaffected.
+- Empty (all-voided) deals render "ยังไม่มีเอกสาร" with an
+  "ออกใบเสนอราคาใหม่" recovery button instead of fake step 1.
+- `deriveDealStage` labels draft CN/debit ("รอส่งใบลดหนี้/ใบเพิ่มหนี้") and
+  counts adjustments in skipped phases.
+- `pickAmountDocument` falls back to `receipt` (BN > INV > QT > DN > RCT);
+  `summaryStats` includes generated receipts; receipt-only deals show
+  "ยอดที่รับแล้ว" with the real amount.
+- Billed-in deals show "รวมบิลในงานอื่น" in the header pill so it agrees
+  with the branch card. Home labels unchanged.
+
+Verification: `tsc` clean, `lint` 0 errors, `build` passed, unit 28/28
+(workflow+amount), e2e 19/19. Staff notice: deals that were falsely "done"
+will correctly return to active.
 
 ## Pending
 
