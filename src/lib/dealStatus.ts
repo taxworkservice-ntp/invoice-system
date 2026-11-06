@@ -46,12 +46,13 @@ export function sortDocsNewestFirst<T extends StatusDocLike>(documents: T[]): T[
   });
 }
 
-const AMOUNT_DOC_ORDER = ["billing_note", "invoice", "quotation", "delivery_note"];
+const AMOUNT_DOC_ORDER = ["billing_note", "invoice", "quotation", "delivery_note", "receipt"];
 
 /**
- * Which document headlines the deal's money. Order: BN > INV > QT > DN,
+ * Which document headlines the deal's money. Order: BN > INV > QT > DN > RCT,
  * newest within each type. Used identically on home and the deal page so both
- * always show the same amount.
+ * always show the same amount. The receipt is last so it only headlines
+ * receipt-only deals — it never overrides an invoice or billing note.
  */
 export function pickAmountDocument<T extends StatusDocLike>(documents: T[]): T | null {
   const sorted = sortDocsNewestFirst(documents.filter((doc) => doc.status !== "voided"));

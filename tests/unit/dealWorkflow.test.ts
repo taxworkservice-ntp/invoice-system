@@ -61,7 +61,10 @@ describe("deal workflow stage", () => {
   });
 
   it("marks a done deal as done and ignores a manual override", () => {
-    const stage = derive([], { isDone: true, manualStage: "wait_collect" });
+    const stage = derive([doc("inv-1", "invoice", "paid")], {
+      isDone: true,
+      manualStage: "wait_collect",
+    });
     expect(stage.phase).toBe("done");
     expect(stage.queue).toBe("done");
     expect(stage.stageLabel).toBe("เสร็จแล้ว");
@@ -191,6 +194,30 @@ describe("deal workflow stage", () => {
     const stage = derive([doc("inv-1", "invoice", "paid")], { isDone: true });
     expect(stage.phase).toBe("done");
     expect(stage.skipped).toEqual(["quote", "deliver"]);
+  });
+
+  it("names the empty deal instead of claiming step 1 is in progress", () => {
+    const stage = derive([]);
+    expect(stage.stageLabel).toBe("ยังไม่มีเอกสาร");
+    expect(stage.phase).toBe("quote");
+    expect(stage.skipped).toEqual([]);
+    expect(stage.isManual).toBe(false);
+  });
+
+  it("labels a draft credit note and skips the untouched phases", () => {
+    const stage = derive([doc("cn-1", "credit_note", "draft")]);
+    expect(stage.stageLabel).toBe("รอส่งใบลดหนี้");
+    expect(stage.queue).toBe("wait_send");
+    expect(stage.phase).toBe("collect");
+    expect(stage.skipped).toEqual(["quote", "deliver", "invoice"]);
+  });
+
+  it("labels a draft debit note and skips the untouched phases", () => {
+    const stage = derive([doc("dn-1", "debit_note", "draft")]);
+    expect(stage.stageLabel).toBe("รอส่งใบเพิ่มหนี้");
+    expect(stage.queue).toBe("wait_send");
+    expect(stage.phase).toBe("collect");
+    expect(stage.skipped).toEqual(["quote", "deliver", "invoice"]);
   });
 });
 

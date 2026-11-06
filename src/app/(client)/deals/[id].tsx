@@ -110,7 +110,7 @@ type MainAction =
   | { type: "convert"; doc: Document; label: string }
   | { type: "delivery_from_quote"; doc: Document; label: string }
   | { type: "invoice_from_dns"; doc: Document; label: string }
-  | { type: "billing"; doc: Document; label: string }
+  | { type: "billing"; doc: Document; label: string; danger?: boolean }
   | { type: "confirm_receipt"; doc: Document; label: string }
   | { type: "collect"; doc: Document; label: string; danger?: boolean }
   | { type: "done"; label: string }
@@ -1385,7 +1385,18 @@ export default function DealDetailPage() {
     });
   }, [latestQuotation, nonVoidedDocs]);
 
-  const allDone = nonVoidedDocs.length > 0 && nonVoidedDocs.every((item) => item.stage === "done");
+  // A deal is done only when real work closed it. A lone converted paper
+  // (its downstream lives in another deal or was deleted) or a lone
+  // adjustment note must not close the deal by itself.
+  const allDone =
+    nonVoidedDocs.length > 0 &&
+    nonVoidedDocs.every((item) => item.stage === "done") &&
+    nonVoidedDocs.some(
+      (item) =>
+        item.document.status !== "converted" &&
+        item.document.doc_type !== "credit_note" &&
+        item.document.doc_type !== "debit_note",
+    );
   const hasPaidDocs = nonVoidedDocs.some((item) => item.document.status === "paid");
   const deliveryNotes = useMemo(
     () => nonVoidedDocs.filter((item) => item.document.doc_type === "delivery_note"),
@@ -1492,7 +1503,9 @@ export default function DealDetailPage() {
       ? "ยอดที่ต้องรับ"
       : amountDoc?.document.doc_type === "invoice"
         ? "ยอดในใบแจ้งหนี้"
-        : "ยอดในใบเสนอราคา";
+        : amountDoc?.document.doc_type === "receipt"
+          ? "ยอดที่รับแล้ว"
+          : "ยอดในใบเสนอราคา";
 
   // The invoices still waiting to be paid — the list the billing note would
   // offer: the sent invoices that are not already in a billing note (the
@@ -1547,7 +1560,7 @@ export default function DealDetailPage() {
       if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return { type: "invoice_from_dns", doc, label: "ออกใบแจ้งหนี้จากใบส่งของ" };
     }
-    if (doc.doc_type === "quotation" && doc.status === "sent") {
+    if (doc.doc_type === "quotation" && (doc.status === "sent" || doc.status === "overdue")) {
       if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return hasQuotationDeliveryActivity
         ? { type: "delivery_from_quote", doc, label: "บันทึกการส่งของ" }
@@ -1556,15 +1569,26 @@ export default function DealDetailPage() {
     // The invoice is waiting for a billing note that was drafted but never
     // sent. It is locked to that note (the picker skips it, and the trigger
     // blocks any other link), so the next step is to send the note.
+    // If the draft note is gone (voided/deleted), the lock is orphaned —
+    // offer a fresh billing note instead of a dead end.
     if (doc.doc_type === "invoice" && doc.status === "in_billing") {
       const draftNote = draftBillingNoteFor.get(doc.id);
       if (draftNote && canSendDocumentType(permissions, "billing_note")) {
         return { type: "send_draft", doc: draftNote, label: sendDraftLabel(draftNote) };
       }
+      if (permissions.canRecordPayments) {
+        return { type: "billing", doc, label: "ออกใบวางบิล" };
+      }
     }
-    if (doc.doc_type === "invoice" && doc.status === "sent") {
+    if (doc.doc_type === "invoice" && (doc.status === "sent" || doc.status === "overdue")) {
       if (!permissions.canRecordPayments) return null;
-      return { type: "billing", doc, label: "ออกใบวางบิล" };
+      const overdue = doc.status === "overdue" || isDocumentOverdue(doc);
+      return {
+        type: "billing",
+        doc,
+        label: overdue ? "เกินกำหนด — ออกใบวางบิล" : "ออกใบวางบิล",
+        danger: overdue || undefined,
+      };
     }
     if (doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue")) {
       if (!permissions.canRecordPayments) return null;
@@ -1591,7 +1615,7 @@ export default function DealDetailPage() {
 
     if (
       doc.doc_type === "quotation" &&
-      doc.status === "sent" &&
+      (doc.status === "sent" || doc.status === "overdue") &&
       canSendDocumentType(permissions, doc.doc_type)
     ) {
       return mainAction?.type === "delivery_from_quote"
@@ -1603,7 +1627,11 @@ export default function DealDetailPage() {
           };
     }
 
-    if (doc.doc_type === "invoice" && doc.status === "sent" && permissions.canRecordPayments) {
+    if (
+      doc.doc_type === "invoice" &&
+      (doc.status === "sent" || doc.status === "overdue") &&
+      permissions.canRecordPayments
+    ) {
       return { type: "collect" as const, doc, label: "รับเงินโดยไม่ออกใบวางบิล" };
     }
 
@@ -1695,7 +1723,6 @@ export default function DealDetailPage() {
       .filter((item) => {
         const doc = item.document;
         if (["quotation", "delivery_note", "credit_note"].includes(doc.doc_type)) return false;
-        if (doc.doc_type === "receipt" && doc.status === "generated") return false;
         return doc.status === "paid" || doc.status === "generated" || doc.status === "issued";
       })
       .sort((a, b) => {
@@ -1791,6 +1818,21 @@ export default function DealDetailPage() {
       }
     : null;
 
+  // Billed-in deals collect in the other deal. The lifecycle phases stay
+  // local-factual, but the header pill must agree with the branch card —
+  // never claim "act here" while the only action points elsewhere.
+  const displayWorkflow = useMemo(
+    () =>
+      billingRefs.billedIn
+        ? {
+            ...workflow,
+            stageLabel: "รวมบิลในงานอื่น",
+            stageHint: `ติดตามที่ ${billingRefs.billedIn.dealNumber || billingRefs.billedIn.invoiceNumber || "งานขายอื่น"}`,
+          }
+        : workflow,
+    [billingRefs.billedIn, workflow],
+  );
+
   if (authLoading || loading) {
     return (
       <AppShell title="งานขาย" showBack>
@@ -1868,7 +1910,7 @@ export default function DealDetailPage() {
             customer,
             title,
             itemSummary,
-            workflow,
+            workflow: displayWorkflow,
             isOverdue,
             overdueDueDate: activeDoc?.document.due_date ?? null,
             amount: amountDoc ? getDocumentAmount(amountDoc.document) : 0,
@@ -1963,7 +2005,22 @@ export default function DealDetailPage() {
                       </Button>
                     )}
                   </>
-                ) : mainAction?.type === "done" ? null : (
+                ) : mainAction?.type === "done" ? null : nonVoidedDocs.length === 0 ? (
+                  <div className="rounded-control bg-paper-field px-3 py-2 text-center">
+                    <div className="text-label leading-5 text-ink-600">
+                      เอกสารทั้งหมดถูกยกเลิกแล้ว — ออกเอกสารใหม่เพื่อเริ่มงานต่อ
+                    </div>
+                    {canSendDocumentType(permissions, "quotation") && (
+                      <Button
+                        variant="secondary"
+                        className="mt-2 w-full justify-center"
+                        onClick={() => createDocument("quotation", { dealId })}
+                      >
+                        ออกใบเสนอราคาใหม่
+                      </Button>
+                    )}
+                  </div>
+                ) : (
                   <div className="rounded-control bg-paper-field px-3 py-2 text-center text-label leading-5 text-ink-600">
                     {activeDoc && !allDone
                       ? "รอผู้จัดการดำเนินการต่อ เอกสารนี้ถูกบันทึกเป็นฉบับร่างแล้ว"

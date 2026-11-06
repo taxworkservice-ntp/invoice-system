@@ -132,18 +132,33 @@ function getSkippedPhases(documents: WorkflowDoc[]): DealPhase[] {
   const hasInvoice = types.has("invoice");
   const hasBilling = types.has("billing_note");
   const hasReceipt = types.has("receipt");
-  const hasLaterDoc = hasInvoice || hasBilling || hasReceipt || types.has("delivery_note");
+  const hasAdjustment = types.has("credit_note") || types.has("debit_note");
+  const hasLaterDoc =
+    hasInvoice || hasBilling || hasReceipt || hasAdjustment || types.has("delivery_note");
   if (!types.has("quotation") && hasLaterDoc) skipped.push("quote");
-  if (!types.has("delivery_note") && (hasInvoice || hasBilling || hasReceipt)) {
+  if (!types.has("delivery_note") && (hasInvoice || hasBilling || hasReceipt || hasAdjustment)) {
     skipped.push("deliver");
   }
-  if (!hasInvoice && (hasBilling || hasReceipt)) skipped.push("invoice");
+  if (!hasInvoice && (hasBilling || hasReceipt || hasAdjustment)) skipped.push("invoice");
   return skipped;
 }
 
 function deriveBaseStage(input: DealStageInput): DealStageInfo {
   const { documents, latestDocument, isDone, isOverdue } = input;
   const skipped = getSkippedPhases(documents);
+
+  // No live documents (every one voided, or none ever created). This is not
+  // "step 1 in progress" — say so, so the page can offer a fresh start.
+  if (documents.length === 0) {
+    return {
+      stageLabel: "ยังไม่มีเอกสาร",
+      stageHint: "เอกสารทั้งหมดถูกยกเลิกแล้ว",
+      queue: "progress",
+      phase: "quote",
+      skipped,
+      isManual: false,
+    };
+  }
   const dnWaiting = getDnWaitingForInvoice(documents);
   const billingWaiting = getBillingWaitingForPayment(documents);
   const quoteProgress = getQuotationDeliveryProgress(documents);
@@ -221,7 +236,11 @@ function deriveBaseStage(input: DealStageInput): DealStageInfo {
             ? "รอส่งใบแจ้งหนี้"
             : latestDocument.doc_type === "billing_note"
               ? "รอส่งใบวางบิล"
-              : "รอส่งเอกสาร";
+              : latestDocument.doc_type === "credit_note"
+                ? "รอส่งใบลดหนี้"
+                : latestDocument.doc_type === "debit_note"
+                  ? "รอส่งใบเพิ่มหนี้"
+                  : "รอส่งเอกสาร";
     const draftCount = documents.filter((doc) => doc.status === "draft").length;
     return {
       stageLabel: label,
