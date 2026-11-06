@@ -237,6 +237,37 @@ test.describe("deal page — next step choice", () => {
     }
   });
 
+  test("payment date picker stays inside the viewport", async ({ page }) => {
+    const session = await signInAndGetSession();
+    const client = await api();
+    const seed = await seedDeal(client, session.user.id, "invoice", "sent");
+
+    try {
+      await page.goto(`/deals/${seed.dealId}`);
+
+      const group = page.getByRole("group", { name: /เลือกอย่างใดอย่างหนึ่ง/ });
+      await group.getByRole("button", { name: /รับเงินโดยไม่ออกใบวางบิล/ }).click();
+      await expect(page.locator("div.fixed.inset-0")).toBeVisible();
+
+      await page.getByLabel("วิธีชำระเงิน").selectOption("bank_transfer");
+      await page.getByRole("button", { name: "เปิดปฏิทิน" }).first().click();
+
+      const dialog = page.getByRole("dialog", { name: "เลือกวันที่" });
+      await expect(dialog).toBeVisible();
+      const box = await dialog.boundingBox();
+      const viewport = page.viewportSize() ?? { width: 1280, height: 800 };
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+    } finally {
+      await client.from("documents").delete().eq("deal_id", seed.dealId);
+      await client.from("deals").delete().eq("id", seed.dealId);
+      await client.from("customers").delete().eq("id", seed.customerId);
+    }
+  });
+
   test("a single next step uses the same card grammar", async ({ page }) => {
     const session = await signInAndGetSession();
     const client = await api();

@@ -9,6 +9,7 @@
  *   - role type tokens only               (no text-xs/sm/base/lg/xl/2xl)
  *   - one heading weight                  (no font-bold)
  *   - page width owned by the shell       (no per-page containers)
+ *   - one date component                  (no raw <input type="date">)
  *
  * The print layer (src/components/print/**, **\/print.tsx) is exempt — it has
  * its own pt-based type system.
@@ -54,6 +55,11 @@ const STRICT_RULES = [
     name: "hand-rolled status pill",
     re: /\bbg-(?:paid|draft|sent|overdue|pending|voided)-bg\b[^"'`]*\brounded-control\b/g,
     hint: "use StatusPill / StatusBadge",
+  },
+  {
+    name: "raw native date input",
+    re: /<(?:input|Input)\b[^>]*type="date"/g,
+    hint: "use DateInput from components/ui (one calendar, era display, viewport-safe popover)",
   },
 ];
 

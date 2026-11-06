@@ -16,6 +16,7 @@ import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
 import { SortableTh } from "../ui/SortableTh";
+import { DateInput } from "../ui/DateInput";
 import { localTodayString, monthStartString } from "../../lib/devDate";
 import { useTableSort } from "../ui/useTableSort";
 import { useStockReport, fetchFullStockReport } from "../../hooks/useReports";
@@ -191,23 +192,23 @@ export function StockReport({ userId }: StockReportProps) {
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
             <label className="min-w-0">
               <span className="sr-only">วันที่เริ่มต้น</span>
-              <input
-                type="date"
+              <DateInput
+                size="sm"
                 value={dateFrom}
                 max={dateTo || undefined}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full min-w-0 rounded-control border border-card-border bg-white px-2.5 py-1.5 text-body text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                aria-label="วันที่เริ่มต้น"
               />
             </label>
             <span className="text-label text-ink-300">ถึง</span>
             <label className="min-w-0">
               <span className="sr-only">วันที่สิ้นสุด</span>
-              <input
-                type="date"
+              <DateInput
+                size="sm"
                 value={dateTo}
                 min={dateFrom || undefined}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full min-w-0 rounded-control border border-card-border bg-white px-2.5 py-1.5 text-body text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                aria-label="วันที่สิ้นสุด"
               />
             </label>
           </div>
@@ -488,19 +489,19 @@ export function StockReport({ userId }: StockReportProps) {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-label text-ink-500">จาก</label>
-            <input
-              type="date"
+            <DateInput
+              size="sm"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-control border border-ink-100 bg-white px-3 py-1.5 text-body text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="จากวันที่"
             />
             <span className="text-label text-ink-400">ถึง</span>
-            <input
-              type="date"
+            <DateInput
+              size="sm"
               value={dateTo}
               max={todayString()}
               onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-control border border-ink-100 bg-white px-3 py-1.5 text-body text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="ถึงวันที่"
             />
           </div>
           {movements.length > 0 ? (

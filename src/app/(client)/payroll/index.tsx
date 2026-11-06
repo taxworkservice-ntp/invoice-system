@@ -24,6 +24,7 @@ import {
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { Select } from "../../../components/ui/Input";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -1995,14 +1996,13 @@ export default function PayrollPage() {
               <div
                 className={`relative ${payDateInvalid ? "[&_input]:border-danger [&_input]:ring-2 [&_input]:ring-danger-border" : ""}`}
               >
-                <Input
+                <DateInput
                   label="วันจ่าย"
                   title={
                     run.status === "finalized"
                       ? "รอบปิดแล้ว — เปิดรอบใหม่เพื่อแก้ไข"
                       : "วันที่จ่ายเงินพนักงาน (ต้องไม่ก่อนวันสิ้นสุดรอบ)"
                   }
-                  type="date"
                   value={payDate}
                   onChange={(e) => handlePayDateChange(e.target.value)}
                   disabled={run.status === "finalized"}
@@ -2865,15 +2865,13 @@ export default function PayrollPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <DateInput
               label="วันเริ่มรอบ"
-              type="date"
               value={createForm.start}
               onChange={(e) => setCreateForm((f) => ({ ...f, start: e.target.value }))}
             />
-            <Input
+            <DateInput
               label="วันสิ้นสุดรอบ"
-              type="date"
               value={createForm.end}
               onChange={(e) => setCreateForm((f) => ({ ...f, end: e.target.value }))}
             />
@@ -2884,22 +2882,19 @@ export default function PayrollPage() {
             onChange={(e) => setCreateForm((f) => ({ ...f, label: e.target.value }))}
             placeholder="เช่น รอบที่ 1 · 1–10 ส.ค."
           />
-          <Input
+          <DateInput
             label="วันจ่าย"
-            type="date"
             value={createForm.pay_date}
             onChange={(e) => setCreateForm((f) => ({ ...f, pay_date: e.target.value }))}
           />
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <DateInput
               label="OT เริ่ม (ถ้าแยกตัดรอบ)"
-              type="date"
               value={createForm.ot_start}
               onChange={(e) => setCreateForm((f) => ({ ...f, ot_start: e.target.value }))}
             />
-            <Input
+            <DateInput
               label="OT สิ้นสุด (ถ้าแยกตัดรอบ)"
-              type="date"
               value={createForm.ot_end}
               onChange={(e) => setCreateForm((f) => ({ ...f, ot_end: e.target.value }))}
             />
@@ -2989,16 +2984,14 @@ export default function PayrollPage() {
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <DateInput
               label="วันเริ่มรอบ"
-              type="date"
               value={editForm.start}
               onChange={(e) => setEditForm((f) => ({ ...f, start: e.target.value }))}
               disabled={lineItems.size > 0}
             />
-            <Input
+            <DateInput
               label="วันสิ้นสุดรอบ"
-              type="date"
               value={editForm.end}
               onChange={(e) => setEditForm((f) => ({ ...f, end: e.target.value }))}
               disabled={lineItems.size > 0}
@@ -3016,22 +3009,19 @@ export default function PayrollPage() {
             onChange={(e) => setEditForm((f) => ({ ...f, label: e.target.value }))}
             placeholder="เช่น รอบที่ 1 · 1–10 ส.ค."
           />
-          <Input
+          <DateInput
             label="วันจ่าย"
-            type="date"
             value={editForm.pay_date}
             onChange={(e) => setEditForm((f) => ({ ...f, pay_date: e.target.value }))}
           />
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <DateInput
               label="OT เริ่ม (ถ้าแยกตัดรอบ)"
-              type="date"
               value={editForm.ot_start}
               onChange={(e) => setEditForm((f) => ({ ...f, ot_start: e.target.value }))}
             />
-            <Input
+            <DateInput
               label="OT สิ้นสุด (ถ้าแยกตัดรอบ)"
-              type="date"
               value={editForm.ot_end}
               onChange={(e) => setEditForm((f) => ({ ...f, ot_end: e.target.value }))}
             />

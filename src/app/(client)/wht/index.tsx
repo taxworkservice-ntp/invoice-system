@@ -22,6 +22,7 @@ import {
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { SearchInput } from "../../../components/ui/SearchInput";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SortableTh } from "../../../components/ui/SortableTh";
@@ -1368,9 +1369,8 @@ export default function WhtPage() {
                 </option>
               ))}
             </Select>
-            <Input
+            <DateInput
               label="วันที่ *"
-              type="date"
               value={newRecord.issue_date}
               onChange={(e) => setNewRecord({ ...newRecord, issue_date: e.target.value })}
             />
@@ -1543,9 +1543,8 @@ export default function WhtPage() {
                 </option>
               ))}
             </Select>
-            <Input
+            <DateInput
               label="วันที่ *"
-              type="date"
               value={editRecordForm.issue_date}
               onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })}
             />

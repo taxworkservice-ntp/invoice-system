@@ -4,6 +4,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Select } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
@@ -811,24 +812,22 @@ export default function DownloadCenterPage() {
                     <label htmlFor="builder-from" className="mb-0.5 block text-label text-ink-500">
                       จากวันที่
                     </label>
-                    <input
+                    <DateInput
                       id="builder-from"
-                      type="date"
+                      size="sm"
                       value={customFrom}
                       onChange={(e) => setCustomFrom(e.target.value)}
-                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
                     <label htmlFor="builder-to" className="mb-0.5 block text-label text-ink-500">
                       ถึงวันที่
                     </label>
-                    <input
+                    <DateInput
                       id="builder-to"
-                      type="date"
+                      size="sm"
                       value={customTo}
                       onChange={(e) => setCustomTo(e.target.value)}
-                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -1034,12 +1033,11 @@ export default function DownloadCenterPage() {
                     >
                       จากวันที่
                     </label>
-                    <input
+                    <DateInput
                       id="download-stock-from"
-                      type="date"
+                      size="sm"
                       value={stockFrom}
                       onChange={(e) => setStockFrom(e.target.value)}
-                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div>
@@ -1049,12 +1047,11 @@ export default function DownloadCenterPage() {
                     >
                       ถึงวันที่
                     </label>
-                    <input
+                    <DateInput
                       id="download-stock-to"
-                      type="date"
+                      size="sm"
                       value={stockTo}
                       onChange={(e) => setStockTo(e.target.value)}
-                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>

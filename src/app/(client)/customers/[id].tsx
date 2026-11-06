@@ -12,6 +12,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Badge } from "../../../components/ui/Badge";
 import { SortableTh } from "../../../components/ui/SortableTh";
@@ -936,26 +937,24 @@ export default function CustomerDetailPage() {
               </div>
               {rangePreset === "custom" && (
                 <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-paper-field px-2 py-1">
-                  <input
-                    type="date"
+                  <DateInput
+                    size="sm"
                     value={dateFrom}
                     max={dateTo || undefined}
                     onChange={(e) => {
                       setDateFrom(e.target.value);
                       setRangePreset("custom");
                     }}
-                    className="rounded-control border border-card-border bg-white px-2 py-1 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                   <span className="text-label text-ink-400">ถึง</span>
-                  <input
-                    type="date"
+                  <DateInput
+                    size="sm"
                     value={dateTo}
                     min={dateFrom || undefined}
                     onChange={(e) => {
                       setDateTo(e.target.value);
                       setRangePreset("custom");
                     }}
-                    className="rounded-control border border-card-border bg-white px-2 py-1 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
               )}

@@ -6,6 +6,7 @@ import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { NumericInput } from "../../../components/ui/NumericInput";
 import { Card } from "../../../components/ui/Card";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
@@ -369,16 +370,14 @@ export default function EditUtilityBillPage() {
             <div>
               <span className="mb-1.5 block text-body text-ink-900">รอบบิล</span>
               <div className="grid grid-cols-2 gap-3">
-                <Input
+                <DateInput
                   label="เริ่ม"
-                  type="date"
                   value={utilityPeriodStart}
                   onChange={(e) => setUtilityPeriodStart(e.target.value)}
                   error={utilityValidation.periodError}
                 />
-                <Input
+                <DateInput
                   label="สิ้นสุด"
-                  type="date"
                   value={utilityPeriodEnd}
                   onChange={(e) => setUtilityPeriodEnd(e.target.value)}
                 />

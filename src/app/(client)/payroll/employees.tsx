@@ -17,6 +17,7 @@ import {
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SearchInput } from "../../../components/ui/SearchInput";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -1283,9 +1284,8 @@ export default function EmployeesPage() {
                   </p>
                 </div>
                 <div>
-                  <Input
+                  <DateInput
                     label="วันเกิด"
-                    type="date"
                     value={modal.form.date_of_birth}
                     onChange={(e) => updateField("date_of_birth", e.target.value)}
                   />
@@ -1354,9 +1354,8 @@ export default function EmployeesPage() {
                   onChange={(e) => updateField("base_salary", e.target.value)}
                   placeholder="0"
                 />
-                <Input
+                <DateInput
                   label="วันที่เริ่มงาน"
-                  type="date"
                   value={modal.form.start_date}
                   onChange={(e) => updateField("start_date", e.target.value)}
                 />
@@ -1382,9 +1381,8 @@ export default function EmployeesPage() {
                   </p>
                 </div>
                 {modal.form.status === "inactive" && (
-                  <Input
+                  <DateInput
                     label="วันที่ลาออก"
-                    type="date"
                     value={modal.form.end_date}
                     onChange={(e) => updateField("end_date", e.target.value)}
                   />
@@ -1483,9 +1481,8 @@ export default function EmployeesPage() {
                 พนักงานจะไม่แสดงในรอบเงินเดือนถัดไป
               </p>
             </div>
-            <Input
+            <DateInput
               label="วันที่ลาออก"
-              type="date"
               value={offboardingDate}
               onChange={(e) => setOffboardingDate(e.target.value)}
             />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Input, Select } from "../ui/Input";
+import { DateInput } from "../ui/DateInput";
 import { Button } from "../ui/Button";
 import { EMPTY_FILTERS, type AgingBucket, type DocumentFilters } from "../../lib/documentFilters";
 import { PAYMENT_METHOD_LABELS } from "../../constants";
@@ -103,14 +104,12 @@ export function DocumentFilterSheet({
           <section className="space-y-2">
             <SectionTitle>ช่วงวันที่</SectionTitle>
             <div className="grid grid-cols-2 gap-2">
-              <Input
-                type="date"
+              <DateInput
                 label="จากวันที่"
                 value={draft.from}
                 onChange={(event) => patch({ from: event.target.value })}
               />
-              <Input
-                type="date"
+              <DateInput
                 label="ถึงวันที่"
                 value={draft.to}
                 onChange={(event) => patch({ to: event.target.value })}

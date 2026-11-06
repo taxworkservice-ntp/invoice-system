@@ -94,24 +94,25 @@ Everything else separates with a border.
 
 Prefer a component over a hand-built equivalent.
 
-| Component                          | Notes                                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------------ |
-| `Button`                           | `size="sm"` = label, `size="md"` = body. `tone` for semantic colours.          |
-| `IconButton`                       | icon-only control; `aria-label` is required, 44px on mobile                    |
-| `Input` / `Select` / `DateInput`   | label = `text-label text-ink-600`, field = `text-body`; `Select` has `sm`/`md` |
-| `PageHeader`                       | in-page context header: title, subtitle, meta, leading, actions                |
-| `Toolbar`                          | search + filters + actions on one responsive row                               |
-| `SegmentedControl`                 | view toggles / filters; `tone="primary"` for section switchers                 |
-| `TabList`                          | tabbed panels; keyboard arrows, `aria-controls`                                |
-| `ActionMenu`                       | overflow `⋯` menu with sections and radio items                                |
-| `StatusPill`                       | the one pill shape; colour classes come from the domain wrapper                |
-| `Card` / `SectionCard`             | 0.5px border, `rounded-card`, flat                                             |
-| `SettingRow`                       | label + description on the left, control on the right                          |
-| `Modal`                            | overlay elevation, `text-title` header                                         |
-| `Toast`                            | overlay elevation, `text-body`                                                 |
-| `Badge` / `StatusBadge`            | document status pills; both delegate to `StatusPill`                           |
-| `Money` / `AmountRow`              | money is always `tabular-nums`                                                 |
-| `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 14px, headers 12px                                 |
+| Component                          | Notes                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Button`                           | `size="sm"` = label, `size="md"` = body. `tone` for semantic colours.                                                    |
+| `IconButton`                       | icon-only control; `aria-label` is required, 44px on mobile                                                              |
+| `Input` / `Select` / `DateInput`   | label = `text-label text-ink-600`, field = `text-body`; `Select` has `sm`/`md`                                           |
+| `DateInput`                        | the ONE date field: `dd/mm/yyyy` + era, custom popover (flip + clamp), typing-first; never use raw `<input type="date">` |
+| `PageHeader`                       | in-page context header: title, subtitle, meta, leading, actions                                                          |
+| `Toolbar`                          | search + filters + actions on one responsive row                                                                         |
+| `SegmentedControl`                 | view toggles / filters; `tone="primary"` for section switchers                                                           |
+| `TabList`                          | tabbed panels; keyboard arrows, `aria-controls`                                                                          |
+| `ActionMenu`                       | overflow `⋯` menu with sections and radio items                                                                          |
+| `StatusPill`                       | the one pill shape; colour classes come from the domain wrapper                                                          |
+| `Card` / `SectionCard`             | 0.5px border, `rounded-card`, flat                                                                                       |
+| `SettingRow`                       | label + description on the left, control on the right                                                                    |
+| `Modal`                            | overlay elevation, `text-title` header                                                                                   |
+| `Toast`                            | overlay elevation, `text-body`                                                                                           |
+| `Badge` / `StatusBadge`            | document status pills; both delegate to `StatusPill`                                                                     |
+| `Money` / `AmountRow`              | money is always `tabular-nums`                                                                                           |
+| `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 14px, headers 12px                                                                           |
 
 ## 6. Spacing and content width
 

@@ -8,6 +8,7 @@ import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { SaveBar } from "../../../components/ui/SaveBar";
 import { Input } from "../../../components/ui/Input";
+import { DateInput } from "../../../components/ui/DateInput";
 import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { DOC_TYPE_LABELS, DOC_TYPE_NOTES } from "../../../constants";
@@ -229,13 +230,11 @@ export default function SettingsNumberingPage() {
             {isDevMode && (
               <div className="rounded-control border border-warning-border bg-warning-soft p-3">
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
-                  <Input
+                  <DateInput
                     id="devEffectiveDate"
                     label="DEV fixed business date"
-                    type="date"
                     value={devEffectiveDate}
                     onChange={(event) => setDevEffectiveDate(event.target.value)}
-                    className="border-warning-border bg-white"
                   />
                   <Button
                     type="button"
