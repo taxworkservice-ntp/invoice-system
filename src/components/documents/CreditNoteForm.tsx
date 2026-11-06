@@ -11,6 +11,7 @@ import { Button } from "../ui/Button";
 import { Select } from "../ui/Input";
 import { NumericInput } from "../ui/NumericInput";
 import { DateInput } from "../ui/DateInput";
+import { StatusPill } from "../ui/StatusPill";
 import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -583,12 +584,42 @@ export function CreditNoteForm({
                   </div>
                   {(showIssueDatePicker || issueDate !== todayString()) && !isReadOnly && (
                     <div className="mt-3 border-t border-line-faint pt-3">
-                      <DateInput
-                        id="creditNoteIssueDate"
-                        value={issueDate}
-                        max={todayString()}
-                        onChange={(e) => setIssueDate(e.target.value)}
-                      />
+                      <div className="rounded-card border border-card-border bg-white p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-body font-medium text-ink-900">
+                              วันที่ออกเอกสาร
+                            </span>
+                            {issueDate ? (
+                              <StatusPill label="เลือกแล้ว" tone="paid" />
+                            ) : (
+                              <StatusPill label="จำเป็น — ยังไม่เลือก" tone="pending" />
+                            )}
+                          </div>
+                          {issueDate ? (
+                            <span className="text-label text-ink-500">
+                              {docDate.date(issueDate)} ·{" "}
+                              {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
+                                weekday: "long",
+                              })}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <div className="min-w-0 flex-1 text-label leading-5 text-ink-500">
+                            ใช้เป็นวันที่ออกเอกสารและวันที่ในเลขที่เอกสาร
+                          </div>
+                          <div className="w-full sm:w-56">
+                            <DateInput
+                              id="creditNoteIssueDate"
+                              value={issueDate}
+                              max={todayString()}
+                              onChange={(e) => setIssueDate(e.target.value)}
+                              aria-label="วันที่ออกเอกสาร"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

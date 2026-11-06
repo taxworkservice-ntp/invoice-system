@@ -5,6 +5,7 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
+import { StatusPill } from "../ui/StatusPill";
 import { DateInput } from "../ui/DateInput";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
@@ -58,6 +59,15 @@ function resolveCreditTermDays(
   clientProfileDays: number | null | undefined,
 ): number {
   return customer?.credit_term_days ?? clientProfileDays ?? 7;
+}
+
+const CREDIT_PRESETS = [0, 7, 15, 30, 60];
+
+function diffDays(from: string, to: string): number {
+  const a = new Date(`${from}T00:00:00`);
+  const b = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
 function buildItemSummary(items: DocumentLineItem[]) {
@@ -114,6 +124,9 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   const [dueDate, setDueDate] = useState(() =>
     addDaysString(businessTodayString(clientProfile), 7),
   );
+  const [creditDays, setCreditDays] = useState(() =>
+    String(resolveCreditTermDays(null, clientProfile?.credit_term_days)),
+  );
 
   useEffect(() => {
     if (!initialCustomerId || documentId || selectedCustomer) return;
@@ -126,12 +139,9 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
     const realToday = businessTodayString(null);
     if (issueDate === realToday) {
       setIssueDate(businessToday);
-      setDueDate(
-        addDaysString(
-          businessToday,
-          resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days),
-        ),
-      );
+      const days = resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days);
+      setDueDate(addDaysString(businessToday, days));
+      setCreditDays(String(days));
     }
   }, [businessToday, clientProfile?.credit_term_days, documentId, issueDate, selectedCustomer]);
 
@@ -139,6 +149,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
     if (clientProfile && !documentId) {
       const days = resolveCreditTermDays(selectedCustomer, clientProfile.credit_term_days);
       setDueDate(addDaysString(issueDate, days));
+      setCreditDays(String(days));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientProfile, selectedCustomer]);
@@ -406,13 +417,14 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
         setCurrentDocumentId(document.id);
         setSelectedCustomer(document.customer || null);
         setIssueDate(document.issue_date);
-        setDueDate(
+        const loadedDueDate =
           document.due_date ||
-            addDaysString(
-              document.issue_date,
-              resolveCreditTermDays(document.customer, clientProfile?.credit_term_days),
-            ),
-        );
+          addDaysString(
+            document.issue_date,
+            resolveCreditTermDays(document.customer, clientProfile?.credit_term_days),
+          );
+        setDueDate(loadedDueDate);
+        setCreditDays(String(Math.max(0, diffDays(document.issue_date, loadedDueDate))));
         setNote(document.note || "");
         setCustomerPo(document.customer_po_number || "");
         setTaskName(document.task_name || "");
@@ -983,63 +995,144 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
                 onSelect={handleSelectCustomer}
                 onCreate={async (customer) => addCustomer(customer)}
               />
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="issueDate"
-                    className="block text-label font-medium text-ink-600 mb-1"
-                  >
-                    วันที่ออกใบวางบิล
-                  </label>
-                  <DateInput
-                    id="issueDate"
-                    value={issueDate}
-                    onChange={(event) => {
-                      setIsDirty(true);
-                      const nextValue = event.target.value;
-                      setIssueDate(nextValue);
-                      setDueDate(
-                        addDaysString(
-                          nextValue,
-                          resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days),
-                        ),
-                      );
-                    }}
-                    disabled={readOnly}
-                  />
-                  <div className="mt-1 text-label text-ink-500">{docDate.date(issueDate)}</div>
-                </div>
-                <div>
-                  <label
-                    htmlFor="dueDate"
-                    className="block text-label font-medium text-ink-600 mb-1"
-                  >
-                    ครบกำหนดชำระ
-                  </label>
-                  <DateInput
-                    id="dueDate"
-                    value={dueDate}
-                    onChange={(event) => {
-                      setIsDirty(true);
-                      setDueDate(event.target.value);
-                      setErrors((prev) => ({ ...prev, dueDate: "" }));
-                    }}
-                    disabled={readOnly}
-                    className={errors.dueDate ? "border-danger" : ""}
-                  />
-                  {errors.dueDate && (
-                    <p className="text-label text-danger-text mt-1">{errors.dueDate}</p>
-                  )}
-                  <div className="mt-1 text-label text-ink-500">
-                    {dueDate ? docDate.date(dueDate) : "-"}
+              <div className="sm:col-span-2 rounded-card border border-card-border bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-body font-medium text-ink-900">วันที่และเครดิต</span>
+                    {issueDate && dueDate && dueDate >= issueDate ? (
+                      <StatusPill label="พร้อม" tone="paid" />
+                    ) : (
+                      <StatusPill label="ยังไม่ครบ" tone="pending" />
+                    )}
                   </div>
-                  {pastDueDate && (
-                    <div className="mt-1 flex items-center gap-1 text-label text-warning-text">
-                      <TriangleAlert className="h-3.5 w-3.5" />
-                      <span>วันครบกำหนดผ่านมาแล้ว</span>
-                    </div>
-                  )}
+                  {issueDate && dueDate ? (
+                    <span className="text-label text-ink-500">
+                      เครดิต {Math.max(0, diffDays(issueDate, dueDate))} วัน
+                    </span>
+                  ) : null}
                 </div>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor="issueDate"
+                      className="mb-1 block text-label font-medium text-ink-600"
+                    >
+                      วันที่ออกใบวางบิล <span className="text-danger">*</span>
+                    </label>
+                    <DateInput
+                      id="issueDate"
+                      value={issueDate}
+                      onChange={(event) => {
+                        setIsDirty(true);
+                        const nextValue = event.target.value;
+                        setIssueDate(nextValue);
+                        const days = Number(creditDays);
+                        const termDays =
+                          Number.isFinite(days) && days >= 0
+                            ? days
+                            : resolveCreditTermDays(
+                                selectedCustomer,
+                                clientProfile?.credit_term_days,
+                              );
+                        setDueDate(addDaysString(nextValue, termDays));
+                        setCreditDays(String(termDays));
+                        setErrors((prev) => ({ ...prev, dueDate: "" }));
+                      }}
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="dueDate"
+                      className="mb-1 block text-label font-medium text-ink-600"
+                    >
+                      ครบกำหนดชำระ <span className="text-danger">*</span>
+                    </label>
+                    <DateInput
+                      id="dueDate"
+                      value={dueDate}
+                      onChange={(event) => {
+                        setIsDirty(true);
+                        const nextValue = event.target.value;
+                        setDueDate(nextValue);
+                        setErrors((prev) => ({ ...prev, dueDate: "" }));
+                        const diff = diffDays(issueDate, nextValue);
+                        if (diff >= 0) setCreditDays(String(diff));
+                      }}
+                      disabled={readOnly}
+                      className={errors.dueDate ? "border-danger" : ""}
+                    />
+                    {errors.dueDate && (
+                      <p className="mt-1 text-label text-danger-text">{errors.dueDate}</p>
+                    )}
+                    {pastDueDate && (
+                      <div className="mt-1 flex items-center gap-1 text-label text-warning-text">
+                        <TriangleAlert className="h-3.5 w-3.5" />
+                        <span>วันครบกำหนดผ่านมาแล้ว</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="creditDays"
+                      className="mb-1 block text-label font-medium text-ink-600"
+                    >
+                      เครดิต (วัน)
+                    </label>
+                    <Input
+                      id="creditDays"
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={creditDays}
+                      onChange={(event) => {
+                        setIsDirty(true);
+                        const value = event.target.value;
+                        setCreditDays(value);
+                        const days = Number(value);
+                        if (value !== "" && Number.isFinite(days) && days >= 0) {
+                          setDueDate(addDaysString(issueDate, days));
+                          setErrors((prev) => ({ ...prev, dueDate: "" }));
+                        }
+                      }}
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-1">
+                  <span className="mr-1 text-label text-ink-500">เลือกเร็ว:</span>
+                  {CREDIT_PRESETS.map((days) => {
+                    const active = Number(creditDays) === days;
+                    return (
+                      <button
+                        key={days}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={readOnly}
+                        onClick={() => {
+                          setIsDirty(true);
+                          setCreditDays(String(days));
+                          setDueDate(addDaysString(issueDate, days));
+                          setErrors((prev) => ({ ...prev, dueDate: "" }));
+                        }}
+                        className={`min-h-9 rounded-full border px-2.5 py-0.5 text-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          active
+                            ? "border-primary bg-primary text-white"
+                            : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-primary-soft/40"
+                        }`}
+                      >
+                        {days === 0 ? "เงินสด" : `${days} วัน`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-2 text-label leading-4 text-ink-400">
+                  เปลี่ยนวันออกหรือเครดิต ระบบจะเลื่อนวันครบกำหนดให้ · แก้ครบกำหนดเองได้
+                  ระบบจะคำนวณเครดิตกลับให้
+                </p>
               </div>
             </FormStep>
 

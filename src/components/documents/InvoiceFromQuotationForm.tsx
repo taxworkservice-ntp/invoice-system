@@ -18,6 +18,7 @@ import { NumericInput } from "../ui/NumericInput";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
 import { DateInput } from "../ui/DateInput";
+import { StatusPill } from "../ui/StatusPill";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
@@ -901,14 +902,40 @@ export function InvoiceFromQuotationForm() {
                         onCreate={async (customer) => addCustomer(customer)}
                       />
                     </div>
-                    <div>
-                      <label className="mb-1 block text-label font-medium text-ink-600">
-                        วันที่ใบแจ้งหนี้
-                      </label>
-                      <DateInput
-                        value={issueDate}
-                        onChange={(event) => setIssueDate(event.target.value)}
-                      />
+                    <div className="sm:col-span-2 rounded-card border border-card-border bg-white p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-body font-medium text-ink-900">
+                            วันที่ใบแจ้งหนี้
+                          </span>
+                          {issueDate ? (
+                            <StatusPill label="เลือกแล้ว" tone="paid" />
+                          ) : (
+                            <StatusPill label="จำเป็น — ยังไม่เลือก" tone="pending" />
+                          )}
+                        </div>
+                        {issueDate ? (
+                          <span className="text-label text-ink-500">
+                            {docDate.date(issueDate)} ·{" "}
+                            {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
+                              weekday: "long",
+                            })}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <div className="min-w-0 flex-1 text-label leading-5 text-ink-500">
+                          ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร
+                        </div>
+                        <div className="w-full sm:w-56">
+                          <DateInput
+                            id="invoiceq-issue-date"
+                            value={issueDate}
+                            onChange={(event) => setIssueDate(event.target.value)}
+                            aria-label="วันที่ใบแจ้งหนี้"
+                          />
+                        </div>
+                      </div>
                     </div>
                     <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
                       <button
