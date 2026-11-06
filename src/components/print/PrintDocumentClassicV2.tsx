@@ -66,18 +66,18 @@ const SIG_LABELS: Record<string, { box1Title: string; box1TitleEn: string; box1R
   receipt: {
     box1Title: "ได้รับชำระเงินถูกต้องแล้ว",
     box1TitleEn: "PAYMENT RECEIVED",
-    box1RoleTh: "ผู้รับเงิน",
-    box1RoleEn: "RECEIVER",
-    box2RoleTh: "ผู้จ่ายเงิน",
-    box2RoleEn: "PAYER",
+    box1RoleTh: "ผู้จ่ายเงิน",
+    box1RoleEn: "PAYER",
+    box2RoleTh: "ผู้มีอำนาจลงนาม",
+    box2RoleEn: "AUTHORIZED BY",
   },
   billing_note: {
     box1Title: "ได้รับใบวางบิลถูกต้อง",
     box1TitleEn: "BILLING ACKNOWLEDGED",
     box1RoleTh: "ผู้รับใบวางบิล",
     box1RoleEn: "ACKNOWLEDGED BY",
-    box2RoleTh: "ผู้จ่ายเงิน",
-    box2RoleEn: "PAYER",
+    box2RoleTh: "ผู้ออกเอกสาร",
+    box2RoleEn: "ISSUED BY",
   },
   quotation: {
     box1Title: "ยืนยันคำสั่งซื้อ",
@@ -1620,7 +1620,7 @@ export function PrintDocumentClassicV2({
           {/* The pin spacer absorbs rounding slack so the band always sits
               at the sheet bottom (see .print-classic-bottom-pin). */}
           <div className="print-classic-bottom-pin" aria-hidden="true" />
-          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}${document.doc_type === "receipt" ? " print-sig-receipt" : ""}${document.doc_type === "billing_note" ? " print-sig-2col" : ""}${isQuotation ? " print-sig-2eq" : ""}`}>
+          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}${document.doc_type === "receipt" ? " print-sig-receipt" : ""}${document.doc_type === "billing_note" ? " print-sig-3col" : ""}${isQuotation ? " print-sig-2eq" : ""}`}>
             {(() => {
               const sig = SIG_LABELS[document.doc_type] ?? SIG_LABELS_DEFAULT;
               // Tax invoice: four boxes (received / delivered / issued /
@@ -1741,6 +1741,13 @@ export function PrintDocumentClassicV2({
                           <div className="print-classic-pay-list">-</div>
                         );
                       })()}
+                      <div className="print-classic-pay-payer">
+                        <span className="print-classic-pay-payer-role">
+                          {sig.box1RoleTh}
+                          <span className="print-classic-sig-role-en"> / {sig.box1RoleEn}</span>
+                        </span>
+                        <span className="print-classic-pay-payer-line" />
+                      </div>
                     </div>
                     <div className="print-classic-sig-cell print-classic-sig-cell-fill">
                       <div className="print-classic-sig-th">
@@ -1807,11 +1814,48 @@ export function PrintDocumentClassicV2({
                         )}
                       </div>
                     </div>
-                    <div className="print-classic-sig-cell print-classic-sig-cell-mid">
+                    <div className="print-classic-sig-cell print-classic-sig-cell-collector">
+                      <div className="print-classic-sig-title-row">
+                        <div className="print-classic-sig-th">ผู้วางบิล</div>
+                        <div className="print-classic-sig-th-en">BILL PRESENTED BY</div>
+                      </div>
                       <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-dates">
+                        <div className="print-classic-sig-daterow">
+                          <span className="print-classic-sig-daterow-lab">วันที่วางบิล</span>
+                          <SigDateFill />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="print-classic-sig-cell">
+                      <div className="print-classic-sig-th">{clientProfile.company_name_th}</div>
+                      <div className="print-classic-sig-th-en">
+                        {clientProfile.company_name_en?.toUpperCase() ||
+                          clientProfile.company_name_th.toUpperCase()}
+                      </div>
+                      <div className="print-classic-sig-line">
+                        {signatureUrl ? (
+                          <img
+                            src={signatureUrl}
+                            alt="ลายเซ็น"
+                            className="print-classic-sig-img"
+                            style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                        {stampUrl ? (
+                          <img
+                            src={stampUrl}
+                            alt="ตราประทับ"
+                            className="print-classic-sig-stamp"
+                            style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                      </div>
                       <div className="print-classic-sig-role">
-                        <span className="print-classic-sig-role-th">ผู้ออกเอกสาร</span>
-                        <span className="print-classic-sig-role-en"> / ISSUED BY</span>
+                        <span className="print-classic-sig-role-th">{sig.box2RoleTh}</span>
+                        <span className="print-classic-sig-role-en"> / {sig.box2RoleEn}</span>
                       </div>
                     </div>
                   </>

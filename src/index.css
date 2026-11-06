@@ -1768,6 +1768,27 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   align-items: flex-start;
   text-align: left;
 }
+.print-theme-classic-v2 .print-classic-pay-payer {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 2mm;
+  width: 100%;
+  padding-top: 1.5mm;
+  border-top: 0.5px solid #e5e7eb;
+  font-size: calc(7.5pt * var(--classic-fs-footer));
+  color: #1f2937;
+  text-align: left;
+}
+.print-theme-classic-v2 .print-classic-pay-payer-role {
+  white-space: nowrap;
+}
+.print-theme-classic-v2 .print-classic-pay-payer-line {
+  flex: 1 1 auto;
+  min-width: 20mm;
+  height: 4.5mm;
+  border-bottom: 0.5pt dotted #9ca3af;
+}
 .print-theme-classic-v2 .print-classic-pay-title {
   font-size: calc(7pt * var(--classic-fs-thead));
   font-weight: 700;
@@ -1949,10 +1970,30 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-bottom-band {
   margin-top: 1.8mm;
 }
-/* Billing-note band: acknowledged box spans old boxes 1+2, issued box keeps
-   the old box-3 width. */
-.print-theme-classic-v2 .print-sig-2col {
-  grid-template-columns: 2fr 1fr;
+/* Billing-note band: acknowledged | ผู้วางบิล | issued. */
+.print-theme-classic-v2 .print-sig-3col {
+  grid-template-columns: 1.5fr 1fr 1fr;
+}
+/* Collector box: compact segmented date so the middle cell fits. */
+.print-theme-classic-v2 .print-classic-sig-cell-collector {
+  padding-left: 2mm;
+  padding-right: 2mm;
+}
+.print-theme-classic-v2 .print-classic-sig-cell-collector .print-classic-sig-dates {
+  grid-template-columns: max-content 1fr;
+  column-gap: 1.5mm;
+}
+.print-theme-classic-v2 .print-classic-sig-cell-collector .print-classic-sig-date-fill {
+  width: 100%;
+  gap: 0.6mm;
+  margin: 0;
+}
+.print-theme-classic-v2 .print-classic-sig-cell-collector .print-classic-sig-date-fill .seg-dd,
+.print-theme-classic-v2 .print-classic-sig-cell-collector .print-classic-sig-date-fill .seg-mm {
+  width: 5mm;
+}
+.print-theme-classic-v2 .print-classic-sig-cell-collector .print-classic-sig-date-fill .seg-yy {
+  width: 8mm;
 }
 /* Quotation: two equal signer boxes (no company authorized box). */
 .print-theme-classic-v2 .print-sig-2eq {
