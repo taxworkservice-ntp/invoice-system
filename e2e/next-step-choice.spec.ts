@@ -75,8 +75,9 @@ test.describe("deal page — next step choice", () => {
       expect(Math.abs((a?.y ?? 0) - (b?.y ?? 0))).toBeLessThanOrEqual(2);
       expect(Math.abs((a?.width ?? 0) - (b?.width ?? 0))).toBeLessThanOrEqual(2);
       expect(b?.x ?? 0).toBeLessThan(a?.x ?? 0);
-      // The word between them.
-      await expect(group.getByText("หรือ")).toBeVisible();
+      // The next step (convert) carries no warning line; the delivery
+      // shortcut skips nothing so it has none either.
+      await expect(group.getByText("⚠")).toHaveCount(0);
 
       // The delivery card still routes to the delivery-note form.
       await deliver.click();
@@ -107,6 +108,12 @@ test.describe("deal page — next step choice", () => {
       // (billing note) on the right.
       const [b1, b2] = await Promise.all([billing.boundingBox(), collect.boundingBox()]);
       expect(b2?.x ?? 0).toBeLessThan(b1?.x ?? 0);
+      // The collect shortcut warns there is no consolidated statement; the
+      // billing card carries no warning.
+      await expect(
+        collect.getByText("เก็บเงินตามใบแจ้งหนี้ทีละใบ ไม่มีเอกสารรวมยอด"),
+      ).toBeVisible();
+      await expect(billing.getByText("ไม่มีเอกสารรวมยอด")).toHaveCount(0);
 
       // Collecting opens the payment flow.
       await collect.click();

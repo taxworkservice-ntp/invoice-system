@@ -79,7 +79,7 @@ export function DealManagementCard({
               ? "แก้ไขใบวางบิล"
               : activeDoc?.document.doc_type === "invoice"
                 ? "แก้ไขโดยออกฉบับใหม่"
-                : "ยกเลิก / แก้ไข"}
+                : "แก้ไข (เก็บฉบับเดิมไว้)"}
           </Button>
         )}
         {activeDoc?.document.doc_type === "billing_note" &&

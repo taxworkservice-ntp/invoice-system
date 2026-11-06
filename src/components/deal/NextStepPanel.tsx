@@ -7,6 +7,7 @@ export interface NextStepOption {
   icon: ElementType;
   tag?: string;
   facts?: string;
+  consequence?: string;
   emphasis?: "primary";
   danger?: boolean;
   loading?: boolean;
@@ -115,6 +116,14 @@ function OptionCard({ option, dividerBefore }: { option: NextStepOption; divider
           {option.facts ? (
             <span className={`mt-1 block text-label font-medium leading-5 ${surface.facts}`}>
               {option.facts}
+            </span>
+          ) : null}
+          {option.consequence ? (
+            <span className="mt-1 flex items-start gap-1 text-label font-medium leading-5 text-warning-text">
+              <span aria-hidden="true" className="shrink-0">
+                ⚠
+              </span>
+              <span>{option.consequence}</span>
             </span>
           ) : null}
         </span>

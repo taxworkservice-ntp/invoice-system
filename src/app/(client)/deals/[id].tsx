@@ -64,6 +64,7 @@ import { isDocumentOverdue, pickAmountDocument } from "../../../lib/dealStatus";
 import { DEAL_PHASE_ORDER, deriveDealStage, type DealPhase } from "../../../lib/dealWorkflow";
 import { getDocumentAmount } from "../../../lib/documentAmount";
 import { DealHeader } from "../../../components/deal/DealHeader";
+import { DealConceptStrip } from "../../../components/deal/DealConceptStrip";
 import { DealDocumentHistory } from "../../../components/deal/DealDocumentHistory";
 import { DealManagementCard } from "../../../components/deal/DealManagementCard";
 import { TabList } from "../../../components/ui/TabList";
@@ -87,8 +88,8 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
   convert: "สร้างใบแจ้งหนี้จากรายการเดิม และให้ตรวจสอบก่อนบันทึก",
   delivery_from_quote: "บันทึกว่าส่งสินค้าแล้ว — ออกใบแจ้งหนี้ภายหลังได้",
   invoice_from_dns: "นำรายการจากใบส่งของมาออกใบแจ้งหนี้ และให้ตรวจสอบก่อนบันทึก",
-  billing: "ลูกค้าได้ใบวางบิล (ใบกำกับภาษี) แล้วบันทึกรับเงินทีหลัง",
-  collect: "ลูกค้าได้เฉพาะใบเสร็จรับเงิน — ยังไม่มีใบกำกับภาษี",
+  billing: "รวมใบแจ้งหนี้ค้างชำระเป็นใบวางบิลใบเดียว แล้วบันทึกรับเงินทีหลัง",
+  collect: "รับเงินตรงตามใบแจ้งหนี้ทีละใบ โดยไม่ผ่านใบวางบิล",
 };
 
 /** The tag on the workflow's next step. */
@@ -103,6 +104,18 @@ const ACTION_SKIP_TAGS: Record<string, string | undefined> = {
   collect: "ข้ามใบวางบิล",
   // ออกใบแจ้งหนี้โดยไม่บันทึกการส่ง: the invoice is issued, the delivery is not recorded.
   convert: "ข้ามใบส่งของ",
+};
+
+/**
+ * What a shortcut costs — shown as a warning line on its card. Only shortcuts
+ * (never the next step) carry one: the next step is the full path, so there
+ * is nothing to warn about.
+ */
+const ACTION_CONSEQUENCES: Record<string, string | undefined> = {
+  // No consolidated billing statement — collection is tracked per invoice.
+  collect: "เก็บเงินตามใบแจ้งหนี้ทีละใบ ไม่มีเอกสารรวมยอด",
+  // No delivery record — the invoice is issued without recording the shipment.
+  convert: "ออกใบแจ้งหนี้โดยไม่บันทึกการส่งของ",
 };
 
 type MainAction =
@@ -1690,6 +1703,7 @@ export default function DealDetailPage() {
       // The next step is the app's primary blue; the shortcut that skips a
       // step says which one it skips.
       tag: isNextStep ? NEXT_STEP_TAG : ACTION_SKIP_TAGS[action.type],
+      consequence: isNextStep ? undefined : ACTION_CONSEQUENCES[action.type],
       emphasis: isNextStep ? "primary" : undefined,
       // The billing note would cover every invoice still waiting to be paid.
       facts: action.type === "billing" ? unpaidInvoicesFacts : undefined,
@@ -1833,6 +1847,11 @@ export default function DealDetailPage() {
     [billingRefs.billedIn, workflow],
   );
 
+  // First-run teaching: show the draft → sent → paid model only while the
+  // deal has never progressed past drafts. Hides on its own afterwards.
+  const showConceptStrip =
+    !allDone && nonVoidedDocs.every((item) => item.document.status === "draft");
+
   if (authLoading || loading) {
     return (
       <AppShell title="งานขาย" showBack>
@@ -1972,6 +1991,7 @@ export default function DealDetailPage() {
                   </span>
                 </div>
               ) : null}
+              {showConceptStrip ? <DealConceptStrip /> : null}
               <DealLifecycle
                 phase={workflow.phase}
                 skipped={workflow.skipped}
@@ -1980,7 +2000,7 @@ export default function DealDetailPage() {
                   const doc = docByPhase.get(phase);
                   if (doc) navigate(`/documents/${doc.id}`);
                 }}
-              />
+              />{" "}
               <div className="mt-4">
                 {billedInBranchOption ? (
                   <NextStepPanel options={[billedInBranchOption]} />

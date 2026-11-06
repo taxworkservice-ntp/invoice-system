@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, CalendarDays, ChevronDown, FileStack, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -1101,13 +1101,41 @@ export function InvoiceFromDeliveryNotesForm() {
                         onCreate={async (customer) => addCustomer(customer)}
                       />
                     </div>
-                    <div className="sm:col-span-2 rounded-card border border-card-border bg-paper-soft p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 text-label font-medium text-ink-600">
-                          <CalendarDays className="h-4 w-4 text-primary" />
-                          วันที่ใบแจ้งหนี้
+                    <div className="sm:col-span-2 rounded-card border border-card-border bg-white p-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-body font-medium text-ink-900">
+                              วันที่ใบแจ้งหนี้ <span className="text-danger">*</span>
+                            </span>
+                            {issueDate ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
+                                <Check className="h-3 w-3" />
+                                เลือกแล้ว
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-pending-bg px-2 py-0.5 text-label font-medium text-pending-text">
+                                จำเป็น — ยังไม่เลือก
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-label leading-5 text-ink-500">
+                            {issueDate ? (
+                              <>
+                                {docDate.date(issueDate)} ·{" "}
+                                {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
+                                  weekday: "long",
+                                })}
+                              </>
+                            ) : (
+                              "แตะปฏิทินเพื่อเลือกวันที่ออกใบแจ้งหนี้ — ต้องเลือกก่อนบันทึก"
+                            )}
+                          </div>
+                          <p className="mt-1 text-label leading-4 text-ink-400">
+                            ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร
+                          </p>
                         </div>
-                        <div className="w-full sm:w-auto sm:min-w-[180px]">
+                        <div className="w-full sm:w-56">
                           <DateInput
                             id="invoice-issue-date"
                             value={issueDate}
@@ -1116,14 +1144,6 @@ export function InvoiceFromDeliveryNotesForm() {
                           />
                         </div>
                       </div>
-                      {issueDate && (
-                        <p className="mt-1 text-label font-medium text-ink-600">
-                          {docDate.date(issueDate)}
-                        </p>
-                      )}
-                      <p className="mt-1 text-label leading-4 text-ink-500">
-                        ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร
-                      </p>
                     </div>
                     <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
                       <button
@@ -1243,6 +1263,104 @@ export function InvoiceFromDeliveryNotesForm() {
                   ) : undefined
                 }
               >
+                {selectedCustomerId ? (
+                  <div className="mb-3">
+                    <div className="overflow-hidden rounded-card border border-card-border bg-paper-soft">
+                      <button
+                        type="button"
+                        onClick={() => setDateExpanded((prev) => !prev)}
+                        className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                      >
+                        <div>
+                          <div className="text-label font-medium text-ink-700">
+                            ช่วงวันที่ส่งของ
+                          </div>
+                          <div className="mt-0.5 text-label text-ink-500">{dateRangeSummary}</div>
+                        </div>
+                        <ChevronDown
+                          className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      {dateExpanded && (
+                        <div className="border-t border-card-border p-3">
+                          <div className="mb-2 text-label text-ink-500">
+                            ใช้กรองใบส่งของที่พร้อมนำมาออกใบแจ้งหนี้
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(
+                              [
+                                ["thisMonth", "เดือนนี้"],
+                                ["previousMonth", "เดือนก่อน"],
+                                ["last90Days", "ย้อนหลัง 90 วัน"],
+                                ["all", "ทั้งหมด"],
+                              ] as const
+                            ).map(([preset, label]) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => {
+                                  setDatePreset(preset);
+                                  if (preset === "all") {
+                                    setDateFrom("");
+                                    setDateTo("");
+                                  } else if (preset === "last90Days") {
+                                    setDateFrom(defaultDeliveryNoteStartString(businessToday));
+                                    setDateTo(businessToday);
+                                  } else {
+                                    const range = monthRange(
+                                      businessToday,
+                                      preset === "previousMonth" ? -1 : 0,
+                                    );
+                                    setDateFrom(range.from);
+                                    setDateTo(preset === "thisMonth" ? businessToday : range.to);
+                                  }
+                                }}
+                                className={`rounded-full border px-2.5 py-1 text-label font-medium transition-colors ${datePreset === preset ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-primary/40"}`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-1 block text-label font-medium text-ink-600">
+                                ตั้งแต่วันที่
+                              </label>
+                              <DateInput
+                                value={dateFrom}
+                                onChange={(event) => {
+                                  setDatePreset("custom");
+                                  setDateFrom(event.target.value);
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-label font-medium text-ink-600">
+                                ถึงวันที่
+                              </label>
+                              <DateInput
+                                value={dateTo}
+                                onChange={(event) => {
+                                  setDatePreset("custom");
+                                  setDateTo(event.target.value);
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {datePreset === "all" ? (
+                            <div className="mt-2 text-label text-ink-500">
+                              แสดงใบส่งของที่พร้อมออกใบแจ้งหนี้ทั้งหมด
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 text-label leading-5 text-ink-500">
+                      ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว)
+                      สามารถออกบิลทีละส่วนได้
+                    </p>
+                  </div>
+                ) : null}
                 {loadingDns ? (
                   <Spinner />
                 ) : !selectedCustomerId ? (

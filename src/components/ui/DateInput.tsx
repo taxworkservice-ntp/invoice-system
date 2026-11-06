@@ -1,4 +1,5 @@
 import { useRef, type InputHTMLAttributes } from "react";
+import { CalendarDays } from "lucide-react";
 import { fromEraYear, toEraYear, type YearEra } from "../../lib/dates";
 import { useYearEra } from "../YearEraProvider";
 
@@ -27,6 +28,17 @@ export function DateInput({
   const dateRef = useRef<HTMLInputElement>(null);
   const era = useYearEra();
 
+  // The native calendar opens anchored to the element showPicker() is called
+  // on — so the trigger is a visible button, never the hidden input. A click
+  // is also a real user gesture, which showPicker() requires.
+  function openPicker() {
+    try {
+      dateRef.current?.showPicker();
+    } catch {
+      // Browsers without showPicker: focus stays in the text field for typing.
+    }
+  }
+
   return (
     <div className="relative">
       <input
@@ -44,19 +56,22 @@ export function DateInput({
             } as React.ChangeEvent<HTMLInputElement>);
           }
         }}
-        onFocus={() => {
-          try {
-            dateRef.current?.showPicker();
-          } catch {
-            dateRef.current?.focus();
-          }
-        }}
         placeholder="dd/mm/yyyy"
         inputMode="numeric"
         disabled={disabled}
-        className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${disabled ? "opacity-60" : ""} ${className}`}
+        className={`w-full py-2 pl-3 pr-10 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${disabled ? "opacity-60" : ""} ${className}`}
         {...props}
       />
+      <button
+        type="button"
+        onClick={openPicker}
+        disabled={disabled}
+        aria-label="เปิดปฏิทิน"
+        title="เปิดปฏิทิน"
+        className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-control text-ink-400 transition-colors hover:bg-paper-field hover:text-primary-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <CalendarDays className="h-4 w-4" />
+      </button>
       <input
         ref={dateRef}
         type="date"
