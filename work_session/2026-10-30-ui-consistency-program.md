@@ -239,6 +239,24 @@ unit tests, print estimate + fill checks passed.
 - Tests: `refSummary` cleanup + `invoiceFromSources` dateLabel; print estimate
   and fill checks pass.
 
+## 2026-11-06 — Numbering settings hardening
+
+- `settings/numbering.tsx` is owner-only (page guard + RLS) and every save goes
+  through `NumberingChangeConfirmModal`: reason (≥ 5 chars) + type `ยืนยัน`.
+  Only changed rows are shown in the diff; cancelling writes nothing.
+- `sql/20261107_numbering_change_audit.sql` (applied to production):
+  `last_change_reason`, immutable `doc_number_sequence_audit`, an
+  `AFTER INSERT/UPDATE/DELETE` trigger (actor + reason + before/after), and an
+  owner-only `save_doc_number_sequences(p_workspace_user_id, p_rows, p_reason)`
+  RPC. The RPC updates only rows whose prefix/reset/start actually changed.
+- The misleading “รีเซ็ตทุกปี” label is corrected to “รีเซ็ตเลขรันทุกเดือน”
+  (the generator resets monthly).
+- **Format presets are intentionally deferred** — no generator or format
+  changes in this slice; existing document numbers are untouched.
+- Verification: 4 numbering-diff unit tests; e2e `settings-numbering` passes
+  (confirmation gating, cancel/no-write, save, audit reason/actor); `tsc`,
+  strict `lint`, `build`.
+
 ## Pending
 
 - Apply `PageHeader`/`Toolbar` and one loading/empty/error rule to the remaining

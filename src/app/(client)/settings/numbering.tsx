@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
-import { useAuth } from "../../../hooks/useAuth";
+import { useAuth, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
@@ -14,6 +14,13 @@ import { useToast } from "../../../hooks/useToast";
 import { DOC_TYPE_LABELS, DOC_TYPE_NOTES } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { DocNumberSequence, DocumentType } from "../../../types";
+import {
+  buildNumberingDiff,
+  hasNumberingChanges,
+  toNumberingDraft,
+  type NumberingDraft,
+} from "../../../lib/numberingDiff";
+import { NumberingChangeConfirmModal } from "./_components/NumberingChangeConfirmModal";
 
 const DOC_TYPES: DocumentType[] = [
   "quotation",
@@ -25,10 +32,32 @@ const DOC_TYPES: DocumentType[] = [
   "debit_note",
 ];
 
+function toDraftMap(rows: Record<string, DocNumberSequence>) {
+  const map: Partial<Record<DocumentType, NumberingDraft>> = {};
+  for (const docType of DOC_TYPES) {
+    const row = rows[docType];
+    map[docType] = row
+      ? toNumberingDraft(row)
+      : {
+          doc_type: docType,
+          prefix: "",
+          reset_yearly: true,
+          start_sequence: 1,
+        };
+  }
+  return map;
+}
+
 export default function SettingsNumberingPage() {
   const { profile, clientProfile, setClientProfile } = useAuth();
+  const { workspaceUserId, isWorkspaceOwner, loading: workspaceLoading } = useWorkspaceRole();
   const { isDevMode } = useDevMode();
+  const workspaceId = workspaceUserId ?? profile?.id;
   const [sequences, setSequences] = useState<Record<string, DocNumberSequence>>({});
+  const [baseline, setBaseline] = useState<Record<string, DocNumberSequence>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [changeReason, setChangeReason] = useState("");
+  const [confirmWord, setConfirmWord] = useState("");
   const [devEffectiveDate, setDevEffectiveDate] = useState("");
   const [bulkStartSequence, setBulkStartSequence] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -38,21 +67,22 @@ export default function SettingsNumberingPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    if (!profile) return;
+    if (!workspaceId) return;
     setLoading(true);
     supabase
       .from("doc_number_sequences")
       .select("*")
-      .eq("user_id", profile.id)
+      .eq("user_id", workspaceId)
       .then(({ data }) => {
         const map: Record<string, DocNumberSequence> = {};
         for (const seq of (data || []) as DocNumberSequence[]) {
           map[seq.doc_type] = { ...seq, start_sequence: seq.start_sequence ?? 1 };
         }
         setSequences(map);
+        setBaseline(map);
         setLoading(false);
       });
-  }, [profile]);
+  }, [workspaceId]);
 
   useEffect(() => {
     setDevEffectiveDate(clientProfile?.dev_effective_date || "");
@@ -122,83 +152,92 @@ export default function SettingsNumberingPage() {
     });
   }
 
-  async function handleSave() {
-    if (!profile) return;
+  const changes = useMemo(
+    () => buildNumberingDiff(toDraftMap(baseline), toDraftMap(sequences)),
+    [baseline, sequences],
+  );
+
+  function validateDraft() {
+    for (const docType of DOC_TYPES) {
+      if (!getPrefix(docType).trim()) {
+        throw new Error("กรุณาระบุ prefix ให้ครบทุกประเภทเอกสาร");
+      }
+      const startSequence = getStartSequence(docType);
+      if (!Number.isInteger(startSequence) || startSequence < 1) {
+        throw new Error("Start at ต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป");
+      }
+    }
+  }
+
+  function handleRequestSave() {
+    setError("");
+    setSuccess("");
+    try {
+      validateDraft();
+      if (!hasNumberingChanges(changes)) {
+        toast.info("ไม่มีการเปลี่ยนแปลง");
+        return;
+      }
+      setChangeReason("");
+      setConfirmWord("");
+      setConfirmOpen(true);
+    } catch (err: any) {
+      const msg = err.message || "เกิดข้อผิดพลาด";
+      setError(msg);
+      toast.error(msg);
+    }
+  }
+
+  async function handleConfirmedSave() {
+    if (!workspaceId) return;
+    if (changeReason.trim().length < 5 || confirmWord.trim() !== "ยืนยัน") return;
+
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
-      const rows = DOC_TYPES.map((docType) => {
-        const existing = sequences[docType];
-        const prefix = getPrefix(docType).trim();
-        const resetYearly = getResetYearly(docType);
-        const startSequence = getStartSequence(docType);
+      validateDraft();
 
-        if (!prefix) throw new Error("กรุณาระบุ prefix ให้ครบทุกประเภทเอกสาร");
-        if (!Number.isInteger(startSequence) || startSequence < 1) {
-          throw new Error("Start at ต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป");
-        }
+      const rows = DOC_TYPES.map((docType) => ({
+        doc_type: docType,
+        prefix: getPrefix(docType).trim(),
+        reset_yearly: getResetYearly(docType),
+        start_sequence: getStartSequence(docType),
+      }));
 
-        if (existing?.id) {
-          return {
-            id: existing.id,
-            prefix,
-            reset_yearly: resetYearly,
-            start_sequence: startSequence,
-          };
-        }
-        return {
-          user_id: profile.id,
-          doc_type: docType,
-          prefix,
-          reset_yearly: resetYearly,
-          last_sequence: 0,
-          start_sequence: startSequence,
-        };
+      const { data, error: saveError } = await supabase.rpc("save_doc_number_sequences", {
+        p_workspace_user_id: workspaceId,
+        p_rows: rows,
+        p_reason: changeReason.trim(),
       });
-
-      const writes = rows.map((row) => {
-        if ("id" in row && row.id) {
-          return supabase
-            .from("doc_number_sequences")
-            .update({
-              prefix: row.prefix,
-              reset_yearly: row.reset_yearly,
-              start_sequence: row.start_sequence,
-            })
-            .eq("id", row.id);
-        }
-        const { id: _id, ...insertRow } = row as {
-          id?: string;
-          user_id: string;
-          doc_type: DocumentType;
-          prefix: string;
-          reset_yearly: boolean;
-          last_sequence: number;
-          start_sequence: number;
-        };
-        return supabase.from("doc_number_sequences").insert(insertRow);
-      });
+      if (saveError) throw saveError;
 
       if (isDevMode) {
-        writes.push(
-          supabase
-            .from("client_profiles")
-            .update({ dev_effective_date: devEffectiveDate || null })
-            .eq("user_id", profile.id),
-        );
-      }
-
-      const results = await Promise.all(writes);
-      const firstError = results.find((result) => result.error)?.error;
-      if (firstError) throw firstError;
-
-      if (isDevMode) {
+        const { error: devError } = await supabase
+          .from("client_profiles")
+          .update({ dev_effective_date: devEffectiveDate || null })
+          .eq("user_id", workspaceId);
+        if (devError) throw devError;
         setClientProfile((prev) =>
           prev ? { ...prev, dev_effective_date: devEffectiveDate || null } : prev,
         );
       }
+
+      const map: Record<string, DocNumberSequence> = {};
+      for (const seq of (data || []) as DocNumberSequence[]) {
+        map[seq.doc_type] = { ...seq, start_sequence: seq.start_sequence ?? 1 };
+      }
+      if (Object.keys(map).length > 0) {
+        setSequences(map);
+        setBaseline(map);
+      } else {
+        setBaseline(sequences);
+      }
+
+      setConfirmOpen(false);
+      setChangeReason("");
+      setConfirmWord("");
       setSuccess("บันทึกสำเร็จ");
       toast.success("บันทึกเลขที่เอกสารสำเร็จ");
     } catch (err: any) {
@@ -217,6 +256,25 @@ export default function SettingsNumberingPage() {
       </AppShell>
     );
 
+  if (!workspaceLoading && !isWorkspaceOwner) {
+    return (
+      <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร">
+        <div className="space-y-4">
+          <SettingsTabs activePath="/settings/numbering" />
+          <SectionCard
+            title="เฉพาะเจ้าของ"
+            description="การเปลี่ยนเลขที่เอกสารต้องทำโดยเจ้าของพื้นที่ทำงานเท่านั้น"
+          >
+            <p className="text-body leading-6 text-ink-600">
+              เฉพาะเจ้าของพื้นที่ทำงานเท่านั้นที่ดูและแก้ไขเลขที่เอกสารได้
+              หากต้องการเปลี่ยน โปรดติดต่อเจ้าของพื้นที่ทำงาน
+            </p>
+          </SectionCard>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร">
       <div className="space-y-4">
@@ -224,7 +282,7 @@ export default function SettingsNumberingPage() {
 
         <SectionCard
           title="เลขที่เอกสาร"
-          description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร"
+          description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร — การเปลี่ยนต้องยืนยันและบันทึกเหตุผล"
         >
           <div className="space-y-4">
             {isDevMode && (
@@ -280,7 +338,7 @@ export default function SettingsNumberingPage() {
                     <th className="text-left py-2 pr-2">ประเภทเอกสาร</th>
                     <th className="text-left py-2 pr-2">Prefix</th>
                     {isDevMode && <th className="text-left py-2 pr-2">Start at</th>}
-                    <th className="text-center py-2">รีเซ็ตทุกปี</th>
+                    <th className="text-center py-2">รีเซ็ตเลขรันทุกเดือน</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -334,10 +392,33 @@ export default function SettingsNumberingPage() {
 
         <SaveBar
           tone={error ? "error" : success ? "success" : "muted"}
-          label={error || success || "บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร"}
-          onSave={handleSave}
+          label={
+            error ||
+            success ||
+            (changes.length > 0
+              ? `มีการเปลี่ยนแปลง ${changes.length} ประเภทเอกสาร`
+              : "บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร")
+          }
+          onSave={handleRequestSave}
           saving={saving}
           saveLabel="บันทึกทั้งหมด"
+        />
+
+        <NumberingChangeConfirmModal
+          open={confirmOpen}
+          changes={changes}
+          reason={changeReason}
+          confirmWord={confirmWord}
+          saving={saving}
+          onReasonChange={setChangeReason}
+          onConfirmWordChange={setConfirmWord}
+          onCancel={() => {
+            if (saving) return;
+            setConfirmOpen(false);
+            setChangeReason("");
+            setConfirmWord("");
+          }}
+          onConfirm={handleConfirmedSave}
         />
       </div>
     </AppShell>

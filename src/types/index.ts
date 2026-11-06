@@ -213,6 +213,7 @@ export interface DocNumberSequence {
   last_month: number | null;
   last_sequence: number;
   start_sequence: number;
+  last_change_reason?: string | null;
 }
 
 export interface Customer {
