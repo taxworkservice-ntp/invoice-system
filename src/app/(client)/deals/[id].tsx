@@ -100,7 +100,9 @@ const NEXT_STEP_TAG = "ขั้นตอนถัดไป";
  * The delivery-first option skips nothing (it only reorders), so it has none.
  */
 const ACTION_SKIP_TAGS: Record<string, string | undefined> = {
-  // รับเงินโดยไม่ออกใบวางบิล: the customer gets a receipt, not a tax invoice.
+  // รับเงินโดยไม่ออกใบวางบิล: payment is recorded per invoice, no
+  // consolidated billing statement. (The tax invoice already exists —
+  // it was issued with the invoice step.)
   collect: "ข้ามใบวางบิล",
   // ออกใบแจ้งหนี้โดยไม่บันทึกการส่ง: the invoice is issued, the delivery is not recorded.
   convert: "ข้ามใบส่งของ",
@@ -1698,7 +1700,14 @@ export default function DealDetailPage() {
     ): NextStepOption => ({
       key: action.type,
       label: action.label,
-      description: ACTION_DESCRIPTIONS[action.type] ?? "",
+      // "collect" means two different things: recording payment against an
+      // issued billing note (the full path — nothing skipped), or collecting
+      // straight against an invoice (skips the billing note). The card must
+      // say which one it is.
+      description:
+        action.type === "collect" && action.doc.doc_type === "billing_note"
+          ? "บันทึกรับเงินตามใบวางบิล ระบบจะสร้างใบเสร็จให้โดยอัตโนมัติ"
+          : (ACTION_DESCRIPTIONS[action.type] ?? ""),
       icon: iconForAction(action.type),
       // The next step is the app's primary blue; the shortcut that skips a
       // step says which one it skips.

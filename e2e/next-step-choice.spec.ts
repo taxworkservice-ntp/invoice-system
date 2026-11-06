@@ -147,6 +147,96 @@ test.describe("deal page — next step choice", () => {
     }
   });
 
+  test("collecting through a billing note names the billing note", async ({ page }) => {
+    const session = await signInAndGetSession();
+    const client = await api();
+    const userId = session.user.id;
+    const suffix = `${Date.now()}`;
+    const customerId = uid();
+    const dealId = uid();
+    const invoiceId = uid();
+    const billingNoteId = uid();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { error: customerError } = await client.from("customers").insert({
+      id: customerId,
+      user_id: userId,
+      name: `E2E Choice BN ${suffix}`,
+      is_active: true,
+    });
+    if (customerError) throw customerError;
+    const { error: dealError } = await client.from("deals").insert({
+      id: dealId,
+      user_id: userId,
+      customer_id: customerId,
+      title: `E2E Choice BN deal ${suffix}`,
+      is_active: true,
+    });
+    if (dealError) throw dealError;
+    const { error: docsError } = await client.from("documents").insert([
+      {
+        id: invoiceId,
+        user_id: userId,
+        deal_id: dealId,
+        customer_id: customerId,
+        doc_type: "invoice",
+        doc_number: `INV-E2E-${suffix}`,
+        status: "sent",
+        issue_date: today,
+        subtotal: 100,
+        total_amount: 107,
+        net_payable: 107,
+      },
+      {
+        id: billingNoteId,
+        user_id: userId,
+        deal_id: dealId,
+        customer_id: customerId,
+        doc_type: "billing_note",
+        doc_number: `BN-E2E-${suffix}`,
+        status: "sent",
+        issue_date: today,
+        subtotal: 100,
+        total_amount: 107,
+        net_payable: 107,
+      },
+    ]);
+    if (docsError) throw docsError;
+    const { error: linkError } = await client.from("billing_note_invoices").insert({
+      id: uid(),
+      billing_note_id: billingNoteId,
+      invoice_id: invoiceId,
+      user_id: userId,
+      invoice_number: `INV-E2E-${suffix}`,
+      issue_date: today,
+      subtotal: 100,
+      vat_amount: 7,
+      total_amount: 107,
+    });
+    if (linkError) throw linkError;
+
+    try {
+      await page.goto(`/deals/${dealId}`);
+
+      const group = page.getByRole("group", { name: "ขั้นตอนถัดไป", exact: true });
+      await expect(group).toBeVisible();
+      const collect = group.getByRole("button", { name: /บันทึกรับเงิน/ });
+      await expect(collect).toBeVisible();
+      // The full path goes through the billing note — no shortcut warning,
+      // and the description names the billing note, not per-invoice collection.
+      await expect(
+        collect.getByText("บันทึกรับเงินตามใบวางบิล ระบบจะสร้างใบเสร็จให้โดยอัตโนมัติ"),
+      ).toBeVisible();
+      await expect(group.getByText("⚠")).toHaveCount(0);
+      await expect(group.getByText("ไม่มีเอกสารรวมยอด")).toHaveCount(0);
+    } finally {
+      await client.from("billing_note_invoices").delete().eq("billing_note_id", billingNoteId);
+      await client.from("documents").delete().in("id", [invoiceId, billingNoteId]);
+      await client.from("deals").delete().eq("id", dealId);
+      await client.from("customers").delete().eq("id", customerId);
+    }
+  });
+
   test("a single next step uses the same card grammar", async ({ page }) => {
     const session = await signInAndGetSession();
     const client = await api();
