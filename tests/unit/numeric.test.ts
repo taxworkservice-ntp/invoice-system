@@ -47,6 +47,14 @@ describe("sanitizeNumericInput", () => {
     expect(sanitizeNumericInput("١٢٣٤")).toBe("1234");
   });
 
+  it("accepts IME and keyboard decimal-mark variants", () => {
+    expect(sanitizeNumericInput("13٫75")).toBe("13.75"); // Arabic decimal separator
+    expect(sanitizeNumericInput("13．75")).toBe("13.75"); // full-width full stop
+    expect(sanitizeNumericInput("13。75")).toBe("13.75"); // ideographic full stop
+    expect(sanitizeNumericInput("๑๓.๗๕")).toBe("13.75");
+    expect(sanitizeNumericInput("１３.７５")).toBe("13.75");
+  });
+
   it("keeps a leading minus and drops everything else", () => {
     expect(sanitizeNumericInput("-500")).toBe("-500");
     expect(sanitizeNumericInput("-5.5")).toBe("-5.5");

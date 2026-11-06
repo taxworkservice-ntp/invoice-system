@@ -1091,21 +1091,30 @@ create trigger trg_files_updated_at
 
 -- Generate next document number
 -- Call this inside a transaction when saving a new document
-create or replace function generate_doc_number(
+create or replace function public.generate_doc_number(
   p_user_id   uuid,
-  p_doc_type  document_type,
+  p_doc_type  public.document_type,
   p_issue_date date
 )
 returns text as $$
 declare
-   v_seq         public.doc_number_sequences%rowtype;
+  v_seq          public.doc_number_sequences%rowtype;
   v_effective_date date := coalesce(p_issue_date, current_date);
-  v_year        int := extract(year from v_effective_date)::int;
-  v_month       int := extract(month from v_effective_date)::int;
+  v_year         int := extract(year from v_effective_date)::int;
+  v_month        int := extract(month from v_effective_date)::int;
   v_existing_max int := 0;
-  v_next_seq    int;
-  v_doc_number  text;
+  v_next_seq     int;
+  v_doc_number   text;
+  v_display_year int;
+  v_period       text;
 begin
+  -- The year a customer READS follows the workspace's year system (พ.ศ./ค.ศ.).
+  -- Display only: the trailing-number scan stays on the printed period.
+  v_display_year := v_year + case
+    when (select cp.year_era from public.client_profiles cp where cp.user_id = p_user_id) = 'be' then 543
+    else 0
+  end;
+
   select * into v_seq
   from public.doc_number_sequences
   where user_id = p_user_id and doc_type = p_doc_type
@@ -1114,6 +1123,8 @@ begin
   if not found then
     raise exception 'No sequence configured for this document type';
   end if;
+
+  v_period := v_seq.prefix || '-' || v_display_year || '-' || lpad(v_month::text, 2, '0') || '-';
 
   if v_seq.reset_yearly then
     select coalesce(
@@ -1128,8 +1139,9 @@ begin
         and doc_type = p_doc_type
         and doc_number is not null
         and status != 'voided'
-        and extract(year from issue_date)::int = v_year
-        and extract(month from issue_date)::int = v_month
+        -- Match the printed period, not issue_date: a document keeps its
+        -- number when its issue date is edited later.
+        and left(doc_number, length(v_period)) = v_period
     ) t;
   else
     select coalesce(
@@ -1149,15 +1161,13 @@ begin
 
   v_next_seq := greatest(v_existing_max + 1, coalesce(v_seq.start_sequence, 1));
 
-  -- Update sequence record
   update public.doc_number_sequences
   set last_sequence = v_next_seq,
       last_year     = v_year,
       last_month    = v_month
   where user_id = p_user_id and doc_type = p_doc_type;
 
-  -- Format: PREFIX-YYYY-MM-001
-  v_doc_number := v_seq.prefix || '-' || v_year || '-' || lpad(v_month::text, 2, '0') || '-' || lpad(v_next_seq::text, 4, '0');
+  v_doc_number := v_period || lpad(v_next_seq::text, 4, '0');
 
   return v_doc_number;
 end;

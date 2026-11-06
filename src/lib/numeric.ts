@@ -8,13 +8,14 @@
  * numbers and bank accounts must stay plain digit strings.
  */
 
-/** Thai (๐-๙) and Arabic-Indic (٠-٩) digits → ASCII, so IME/mobile input works. */
+/** Thai (๐-๙), Arabic-Indic (٠-٩) and full-width (０-９) digits → ASCII. */
 function normalizeDigits(text: string): string {
   let out = "";
   for (const char of text) {
     const code = char.codePointAt(0) ?? 0;
     if (code >= 0x0e50 && code <= 0x0e59) out += String(code - 0x0e50);
     else if (code >= 0x0660 && code <= 0x0669) out += String(code - 0x0660);
+    else if (code >= 0xff10 && code <= 0xff19) out += String(code - 0xff10);
     else out += char;
   }
   return out;
@@ -33,6 +34,9 @@ function normalizeDigits(text: string): string {
 function normalizeSeparators(input: string, commasAreGrouping = false): string {
   const negative = input.trimStart().startsWith("-");
   let body = (negative ? input.replace("-", "") : input).replace(/[\s\u00a0_]/g, "");
+  // IME / keyboard variants of the decimal point and grouping comma:
+  // Arabic decimal separator, full-width and ideographic full stops.
+  body = body.replace(/[٫．。]/g, ".").replace(/[٬，]/g, ",");
   if (body.includes(",")) {
     if (commasAreGrouping || body.includes(".")) {
       // Grouping is settled: our own display only ever writes "," as a
@@ -101,13 +105,14 @@ export function formatTypedNumeric(text: string, maxFractionDigits = 2): string 
 /** Display an existing value: grouped, capped, and padded to minFractionDigits. */
 export function formatNumericValue(
   value: number | null | undefined,
-  { maxFractionDigits = 2, minFractionDigits = 0 }: { maxFractionDigits?: number; minFractionDigits?: number } = {},
+  {
+    maxFractionDigits = 2,
+    minFractionDigits = 0,
+  }: { maxFractionDigits?: number; minFractionDigits?: number } = {},
 ): string {
   if (value == null || !Number.isFinite(value)) return "";
   const fixed = value.toFixed(maxFractionDigits);
-  const trimmed = fixed.includes(".")
-    ? fixed.replace(/0+$/, "").replace(/\.$/, "")
-    : fixed;
+  const trimmed = fixed.includes(".") ? fixed.replace(/0+$/, "").replace(/\.$/, "") : fixed;
   const [intPart, fraction = ""] = trimmed.split(".");
   const padded = fraction.padEnd(minFractionDigits, "0");
   return `${groupDigits(intPart)}${padded ? `.${padded}` : ""}`;

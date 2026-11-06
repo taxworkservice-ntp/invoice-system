@@ -189,6 +189,37 @@ a prefix.
 
 Verification: `tsc` clean, `lint` 0 errors, `build` passed, e2e 20/20.
 
+## 2026-11-06 — Reference-mode tax-invoice print + doc-number 409
+
+- **Reference-mode invoice print** now renders description + **จำนวนเงิน / AMOUNT**
+  only: no QTY, UNIT, UNIT PRICE or DISC columns. Applied to both the modern
+  template (`PrintLineItemsTable`) and Classic V2 (`PrintDocumentClassicV2`),
+  detected by `isReferenceModeInvoice()` (qty-1 source rows whose unit price
+  equals the line total, no source line item). Detail-mode invoices unchanged.
+  Unit-tested in `tests/unit/refSummary.test.ts`.
+- **Doc-number 409 root cause confirmed in production:** `DO-2569-11-0001` had
+  `issue_date = 2026-10-07` while its number says November. The generator
+  scanned by `issue_date`, so it did not see that number and returned it again
+  → unique-index 409 on every new delivery note for that user. The generated
+  number and the printed period must be the source of truth.
+- **Applied to production** (`fbhoqcpqqtbiorzbuqcl`):
+  `sql/20261106_fix_doc_number_period_scan.sql` — for `reset_yearly`, the max
+  scan now matches the printed period prefix (`PREFIX-DISPLAY_YEAR-MM-`) instead
+  of `issue_date`; voided rows still excluded. Verified in a rolled-back
+  transaction: next delivery note is now `DO-2569-11-0002`, no collision.
+- The earlier `20261106_fix_doc_number_unique_regression.sql` was **not needed**:
+  production already has the correct partial index
+  `idx_documents_unique_doc_number (user_id, doc_type, doc_number) WHERE status
+<> 'voided'`. It remains in the repo as a repair script only.
+- Numeric inputs also accept IME/keyboard decimal variants (Arabic `٫`,
+  full-width `．`, ideographic `。`), full-width digits and existing Thai/Arabic
+  digits — the inch field accepts `13.75` from any of those keyboards. The live
+  bundle already contained the 2-decimal dimension code; a stale tab is the
+  likely reason an old page still showed whole numbers.
+
+Verification: `tsc` clean, `lint` 0 errors, `build` passed, 32 numeric/ref-print
+unit tests, print estimate + fill checks passed.
+
 ## Pending
 
 - Apply `PageHeader`/`Toolbar` and one loading/empty/error rule to the remaining
@@ -201,5 +232,11 @@ Verification: `tsc` clean, `lint` 0 errors, `build` passed, e2e 20/20.
 
 ## Notes
 
-- No migrations.
+- Migrations: `20261106_fix_doc_number_period_scan.sql` applied to production on
+  2026-11-06. Still pending from earlier sessions: `20261027_vat_admin_only.sql`,
+  `20261026_avatar_default_off.sql`, and
+  `supabase/migrations/20260926000001_sso_employer_identifiers.sql` (only if the
+  SSO report is used). Data imports (`import_sr_stamping_customers.sql`,
+  `remove_testko_customers.sql`, `import_testco_customers.sql`) are optional
+  data operations, not schema.
 - `pdfWarm.test.ts` remains a pre-existing stale expectation (layoutVersion 3).
