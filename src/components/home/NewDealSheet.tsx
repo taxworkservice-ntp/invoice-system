@@ -361,7 +361,7 @@ export function NewDealSheet({
                 ? "เลือกได้สูงสุด 3 รายการ"
                 : "เพิ่มรายการโปรด"
           }
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-warning-text hover:bg-warning-soft" : "text-ink-300 hover:bg-warning-soft hover:text-warning-text"}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-warning hover:bg-warning-soft" : "text-ink-300 hover:bg-warning-soft hover:text-warning"}`}
         >
           <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
         </button>
@@ -442,7 +442,7 @@ export function NewDealSheet({
             </div>
           ) : (
             <div className="rounded-card border border-dashed border-card-border bg-paper-field px-4 py-4 text-center">
-              <Star className="mx-auto h-5 w-5 text-warning-text" />
+              <Star className="mx-auto h-5 w-5 text-warning" />
               <div className="mt-2 text-label font-medium text-ink-700">ยังไม่มีรายการโปรด</div>
               <div className="mt-1 text-label leading-4 text-ink-500">
                 เลือกดาวจากตัวเลือกเพิ่มเติม เพื่อให้แสดงที่นี่
