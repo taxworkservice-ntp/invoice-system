@@ -14,27 +14,37 @@ do $$
 declare
   v_duplicates text;
 begin
-  select string_agg(user_id::text || ':' || doc_number || ' (' || count || ')', ', ')
+  select string_agg(
+      user_id::text || ':' || doc_type::text || ':' || doc_number || ' (' || count || ')',
+      ', '
+    )
     into v_duplicates
   from (
-    select user_id, doc_number, count(*) as count
+    select user_id, doc_type, doc_number, count(*) as count
     from public.documents
     where doc_number is not null
-    group by user_id, doc_number
+      and status is distinct from 'voided'
+    group by user_id, doc_type, doc_number
     having count(*) > 1
-    order by user_id, doc_number
+    order by user_id, doc_type, doc_number
     limit 20
   ) duplicates;
 
   if v_duplicates is not null then
-    raise exception 'Duplicate document numbers exist. Resolve before adding unique index: %', v_duplicates;
+    raise exception 'Duplicate active document numbers exist. Resolve before adding the partial unique index: %', v_duplicates;
   end if;
 end;
 $$;
 
-create unique index if not exists uq_documents_user_doc_number
-  on public.documents(user_id, doc_number)
-  where doc_number is not null;
+-- Numbers are unique per document type, and voided rows keep their number
+-- for audit. A full (user_id, doc_number) index would block reusing a voided
+-- number and would collide when two types share a prefix.
+drop index if exists public.uq_documents_user_doc_number;
+alter table public.documents drop constraint if exists uq_documents_user_doc_number;
+
+create unique index if not exists idx_documents_unique_doc_number
+  on public.documents(user_id, doc_type, doc_number)
+  where status is distinct from 'voided';
 
 create or replace function generate_doc_number(
   p_user_id   uuid,

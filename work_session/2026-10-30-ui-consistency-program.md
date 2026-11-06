@@ -165,6 +165,30 @@ Parked for later: printed-title option in the confirm modal (Slice F) — spec
 locked (single shared section in `InvoiceCreateConfirmModal`, IQF selector
 moves, IDNF gains the control, no new presets, VAT-gated).
 
+## 2026-11-06 — Document-number 409 + fractional dimensions
+
+**Root cause of the clone/new-document 409:** the 2026-09-16 numbering migration
+(`sql/add_dev_numbering_date_and_unique_docs.sql`) recreated the full unique
+index `uq_documents_user_doc_number` on `(user_id, doc_number)`, undoing
+`fix_doc_number_reuse.sql`. `generate_doc_number` deliberately skips voided rows,
+so a voided document's number can be issued again — and the full index rejects
+it (23505 → HTTP 409). The same index also rejects two document types that share
+a prefix.
+
+- Fixed `schema.sql` and the historical migration to use the partial index
+  `(user_id, doc_type, doc_number) WHERE status IS DISTINCT FROM 'voided'`.
+- Added `sql/20261106_fix_doc_number_unique_regression.sql` for databases that
+  already applied the bad migration. **This must be applied manually in the
+  target Supabase project — it is a deploy blocker for document creation.**
+  It drops the full index/constraint, creates the partial index, and aborts
+  with a clear message if active duplicates need repair first.
+- Clone failures now show `getDocNumberErrorMessage` (friendly duplicate-number
+  text) instead of the raw Postgres message.
+- Job-detail dimension inputs (`deals/new.tsx`) allow 2 decimals, so inch sizes
+  such as 13.75 survive the summary, line note, and print/PDF.
+
+Verification: `tsc` clean, `lint` 0 errors, `build` passed, e2e 20/20.
+
 ## Pending
 
 - Apply `PageHeader`/`Toolbar` and one loading/empty/error rule to the remaining

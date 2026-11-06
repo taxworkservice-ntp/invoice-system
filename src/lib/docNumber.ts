@@ -7,7 +7,12 @@ export const DUPLICATE_DOC_NUMBER_MESSAGE = "เลขที่เอกสา�
 export function isDuplicateDocNumberError(error: unknown): boolean {
   const err = error as { code?: string; message?: string } | null | undefined;
   const message = err?.message || (error instanceof Error ? error.message : String(error || ""));
-  return err?.code === "23505" || message.includes("uq_documents_user_doc_number");
+  return (
+    err?.code === "23505" ||
+    message.includes("uq_documents_user_doc_number") ||
+    message.includes("idx_documents_unique_doc_number") ||
+    message.includes("duplicate key value violates unique constraint")
+  );
 }
 
 export function getDocNumberErrorMessage(error: unknown): string {
@@ -49,7 +54,11 @@ export async function assertDocNumberAvailable(
   if ((data || []).length > 0) throw new Error(DUPLICATE_DOC_NUMBER_MESSAGE);
 }
 
-export async function generateDocNumber(userId: string, docType: DocumentType, issueDate: string): Promise<string> {
+export async function generateDocNumber(
+  userId: string,
+  docType: DocumentType,
+  issueDate: string,
+): Promise<string> {
   const { data, error } = await supabase.rpc("generate_doc_number", {
     p_user_id: userId,
     p_doc_type: docType,
@@ -59,7 +68,11 @@ export async function generateDocNumber(userId: string, docType: DocumentType, i
   return data as string;
 }
 
-export async function generateDocNumberBE(userId: string, docType: DocumentType, issueDate: string): Promise<string> {
+export async function generateDocNumberBE(
+  userId: string,
+  docType: DocumentType,
+  issueDate: string,
+): Promise<string> {
   return generateDocNumber(userId, docType, issueDate);
 }
 

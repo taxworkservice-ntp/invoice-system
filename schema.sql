@@ -725,9 +725,9 @@ create policy "Admin reads all documents"
   on documents for select
   using (public.is_admin());
 
-create unique index uq_documents_user_doc_number
-  on documents(user_id, doc_number)
-  where doc_number is not null;
+create unique index idx_documents_unique_doc_number
+  on documents(user_id, doc_type, doc_number)
+  where status is distinct from 'voided';
 
 -- Index for common queries
 create index idx_documents_user_status   on documents(user_id, status);

@@ -41,7 +41,7 @@ import {
   invalidateDealDetail,
 } from "../../../lib/dealDetailCache";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
-import { resolveDocNumber } from "../../../lib/docNumber";
+import { getDocNumberErrorMessage, resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
 import { useDocDate } from "../../../components/YearEraProvider";
 import { formatCurrency } from "../../../lib/format";
@@ -1136,7 +1136,7 @@ export default function DealDetailPage() {
       toast.success("เริ่มงานขายใหม่จากรายการเดิมแล้ว");
       navigate(`/deals/${newDeal.id}`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(getDocNumberErrorMessage(err));
     } finally {
       setCopyingDeal(false);
     }

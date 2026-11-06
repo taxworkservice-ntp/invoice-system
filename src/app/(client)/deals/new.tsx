@@ -1559,7 +1559,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                               <NumericInput
                                 bare
                                 value={width === "" ? null : Number(width)}
-                                maxFractionDigits={0}
+                                maxFractionDigits={2}
                                 onTextChange={(text) =>
                                   updateJobDetail(item.id, `${field.field_key}_width`, text)
                                 }
@@ -1570,7 +1570,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                               <NumericInput
                                 bare
                                 value={height === "" ? null : Number(height)}
-                                maxFractionDigits={0}
+                                maxFractionDigits={2}
                                 onTextChange={(text) =>
                                   updateJobDetail(item.id, `${field.field_key}_height`, text)
                                 }
