@@ -19,6 +19,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SortableTh } from "../../components/ui/SortableTh";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { TabList } from "../../components/ui/TabList";
 import { Select } from "../../components/ui/Select";
 import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
@@ -1163,38 +1164,33 @@ export default function HomePage() {
               </div>
             )}
 
-            <div
-              role="tablist"
-              aria-label="งานขาย"
-              className="sticky top-0 z-10 -mx-1 bg-page-bg px-1 py-2"
-              onKeyDown={(e) => {
-                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-                e.preventDefault();
-                setHomeTab((t) => (t === "active" ? "done" : "active"));
-              }}
-            >
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={homeTab === "active"}
-                  onClick={() => setHomeTab("active")}
-                  className={`min-h-11 flex-1 rounded-control border px-3 py-2 text-label font-medium transition-colors md:min-h-0 ${homeTab === "active" ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
-                >
-                  กำลังดำเนินการ
-                  <span className="ml-1 opacity-70">{activeDealsAll.length}</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={homeTab === "done"}
-                  onClick={() => setHomeTab("done")}
-                  className={`min-h-11 flex-1 rounded-control border px-3 py-2 text-label font-medium transition-colors md:min-h-0 ${homeTab === "done" ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
-                >
-                  เสร็จสิ้น
-                  <span className="ml-1 opacity-70">{doneTotal}</span>
-                </button>
-              </div>
+            <div className="sticky top-0 z-10 -mx-1 bg-page-bg px-1 py-2">
+              <TabList
+                idPrefix="home-tab"
+                ariaLabel="งานขาย"
+                value={homeTab}
+                onChange={setHomeTab}
+                tabs={[
+                  {
+                    value: "active",
+                    label: (
+                      <>
+                        กำลังดำเนินการ
+                        <span className="ml-1 opacity-70">{activeDealsAll.length}</span>
+                      </>
+                    ),
+                  },
+                  {
+                    value: "done",
+                    label: (
+                      <>
+                        เสร็จสิ้น
+                        <span className="ml-1 opacity-70">{doneTotal}</span>
+                      </>
+                    ),
+                  },
+                ]}
+              />
             </div>
 
             {homeTab === "active" ? (
@@ -1207,229 +1203,248 @@ export default function HomePage() {
                   }}
                 />
 
-                <section role="tabpanel" aria-label="กำลังดำเนินการ">
-              <div className="mb-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                  <div className="text-label font-semibold text-ink-500">
-                    {homeFilter === "all"
-                      ? "กำลังดำเนินการ"
-                      : quickFilters.find((filter) => filter.value === homeFilter)?.label}
+                <section
+                  role="tabpanel"
+                  id="home-tabpanel-active"
+                  aria-labelledby="home-tab-active"
+                  aria-label="กำลังดำเนินการ"
+                >
+                  <div className="mb-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-primary" />
+                      <div className="text-label font-semibold text-ink-500">
+                        {homeFilter === "all"
+                          ? "กำลังดำเนินการ"
+                          : quickFilters.find((filter) => filter.value === homeFilter)?.label}
+                      </div>
+                      <div className="ml-auto text-label text-ink-400">
+                        {activeDeals.length} รายการ
+                      </div>
+                    </div>
+                    <SegmentedControl
+                      ariaLabel="กรองงานขาย"
+                      options={quickFilters.map((filter) => ({
+                        value: filter.value,
+                        label: filter.label,
+                        count: filter.count,
+                      }))}
+                      value={homeFilter}
+                      onChange={setHomeFilter}
+                      wrap={false}
+                      className="w-full"
+                    />
                   </div>
-                  <div className="ml-auto text-label text-ink-400">{activeDeals.length} รายการ</div>
-                </div>
-                <SegmentedControl
-                  ariaLabel="กรองงานขาย"
-                  options={quickFilters.map((filter) => ({
-                    value: filter.value,
-                    label: filter.label,
-                    count: filter.count,
-                  }))}
-                  value={homeFilter}
-                  onChange={setHomeFilter}
-                  wrap={false}
-                  className="w-full"
-                />
-              </div>
 
-              {activeDeals.length === 0 ? (
-                <EmptyState
-                  title="ยังไม่มีรายการในคิวนี้"
-                  description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน"
-                />
-              ) : (
-                <div className={TABLE.cardWrapper}>
-                  <div className={TABLE.scrollBody}>
-                    <table className={`${TABLE.table} min-w-[760px]`}>
-                      <thead>
-                        <tr className={TABLE.theadTr}>
-                          <SortableTh
-                            label="ลูกค้า"
-                            align="left"
-                            active={dealSort.sort.key === "customerName"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("customerName")}
-                            className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
-                          />
-                          <th className={`${TABLE.thStatic} w-[84px]`}>เลขที่งานขาย</th>
-                          <th className={`${TABLE.thStatic} whitespace-nowrap`}>เอกสารล่าสุด</th>
-                          <SortableTh
-                            label="สถานะ"
-                            align="left"
-                            active={dealSort.sort.key === "stageLabel"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("stageLabel")}
-                            className={`${TABLE.thSortable} min-w-[140px]`}
-                          />
-                          <SortableTh
-                            label="แก้ไขล่าสุด"
-                            align="left"
-                            active={dealSort.sort.key === "updatedAt"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("updatedAt")}
-                            className={TABLE.thSortable}
-                          />
-                          <th className={TABLE.thStatic}>รายการ</th>
-                          <SortableTh
-                            label="ยอดรวม"
-                            align="right"
-                            active={dealSort.sort.key === "grossAmount"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("grossAmount")}
-                            className={`${TABLE.thSortable} min-w-[110px]`}
-                          />
-                          <SortableTh
-                            label="หัก ณ ที่จ่าย"
-                            align="right"
-                            active={dealSort.sort.key === "whtAmount"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("whtAmount")}
-                            className={`${TABLE.thSortable} min-w-[120px]`}
-                          />
-                          <SortableTh
-                            label="รับสุทธิ"
-                            align="right"
-                            active={dealSort.sort.key === "netPayable"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("netPayable")}
-                            className={`${TABLE.thSortable} min-w-[120px]`}
-                          />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visibleSortedActiveDeals.map((deal) => {
-                          const rowAvatar = deal.customerAvatar ?? {
-                            name: deal.customerName,
-                            avatar_initials: null,
-                            avatar_color: null,
-                            avatar_hidden: false,
-                          };
-                          const updatedAtParts = docDate.dateTimeParts(deal.updatedAt);
-                          return (
-                            <tr
-                              key={deal.dealId}
-                              onClick={() => navigate(`/deals/${deal.dealId}`)}
-                              onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
-                              className={`${TABLE.tbodyTr} group`}
-                            >
-                              <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <CustomerAvatar
-                                    customer={rowAvatar}
-                                    size="xs"
-                                    hidden={!showAvatars}
-                                  />
-                                  <span className="text-ink-900 truncate" title={deal.customerName}>
-                                    {deal.customerName}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-3 md:py-2">
-                                <div className="text-label text-ink-900 font-medium whitespace-nowrap">
-                                  {deal.dealNumber || "-"}
-                                </div>
-                                {deal.taxDocNumber ? (
-                                  <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
-                                    {deal.taxDocNumber}
-                                  </div>
-                                ) : (
-                                  <div className="text-label text-ink-200 italic mt-0.5 whitespace-nowrap">
-                                    ยังไม่มีใบกำกับภาษี
-                                  </div>
-                                )}
-                              </td>
-                              <td
-                                className="px-3 py-3 md:py-2 text-ink-500 whitespace-nowrap tabular-nums"
-                                title={deal.latestDocument?.doc_number || ""}
-                              >
-                                {deal.latestDocument?.doc_number || (
-                                  <span className="text-ink-200 italic">—</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-3 md:py-2 whitespace-nowrap">
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
-                                  />
-                                  <span className="text-label text-ink-500">{deal.stageLabel}</span>
-                                </div>
-                                {deal.docTypeLabel && (
-                                  <div className="mt-0.5 text-label text-ink-300">
-                                    {deal.docTypeLabel}
-                                  </div>
-                                )}
-                              </td>
-                              <td className={`${TABLE.tdDimmed} whitespace-nowrap`}>
-                                <div className="tabular-nums leading-tight">
-                                  <div>{updatedAtParts.date}</div>
-                                  <div className="text-label">เวลา {updatedAtParts.time}</div>
-                                </div>
-                              </td>
-                              <td className={TABLE.tdDimmed}>
-                                <span
-                                  className="truncate block max-w-[200px]"
-                                  title={
-                                    deal.itemNames?.length
-                                      ? deal.itemNames.slice(0, 2).join(", ")
-                                      : deal.itemSummary
-                                  }
-                                >
-                                  {deal.itemNames?.length
-                                    ? deal.itemNames.slice(0, 2).join(", ")
-                                    : deal.itemSummary}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 md:py-2 text-right">
-                                <span className="text-ink-500 tabular-nums min-w-[100px] inline-block text-right whitespace-nowrap">
-                                  ฿ {formatCurrency(deal.grossAmount)}
-                                  {deal.isPartiallyPaid && deal.partialReceived > 0 && (
-                                    <span className="block text-label text-warning-text font-medium leading-tight">
-                                      รับแล้ว ฿{formatCurrency(deal.partialReceived)}
-                                    </span>
-                                  )}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 md:py-2 text-right">
-                                <span
-                                  className={`inline-block tabular-nums min-w-[100px] text-right whitespace-nowrap ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}
-                                >
-                                  ฿ {formatCurrency(deal.expectedWhtAmount)}
-                                  {deal.whtAmount > 0 &&
-                                    deal.whtAmount !== deal.expectedWhtAmount && (
-                                      <span className="block text-label font-medium text-warning-text">
-                                        สะสม ฿{formatCurrency(deal.whtAmount)}
-                                      </span>
-                                    )}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 md:py-2 text-right">
-                                <span className="text-ink-900 tabular-nums font-medium min-w-[100px] inline-block text-right whitespace-nowrap">
-                                  ฿ {formatCurrency(deal.netPayable)}
-                                </span>
-                              </td>
+                  {activeDeals.length === 0 ? (
+                    <EmptyState
+                      title="ยังไม่มีรายการในคิวนี้"
+                      description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน"
+                    />
+                  ) : (
+                    <div className={TABLE.cardWrapper}>
+                      <div className={TABLE.scrollBody}>
+                        <table className={`${TABLE.table} min-w-[760px]`}>
+                          <thead>
+                            <tr className={TABLE.theadTr}>
+                              <SortableTh
+                                label="ลูกค้า"
+                                align="left"
+                                active={dealSort.sort.key === "customerName"}
+                                dir={dealSort.sort.dir}
+                                onClick={() => dealSort.handleSort("customerName")}
+                                className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
+                              />
+                              <th className={`${TABLE.thStatic} w-[84px]`}>เลขที่งานขาย</th>
+                              <th className={`${TABLE.thStatic} whitespace-nowrap`}>
+                                เอกสารล่าสุด
+                              </th>
+                              <SortableTh
+                                label="สถานะ"
+                                align="left"
+                                active={dealSort.sort.key === "stageLabel"}
+                                dir={dealSort.sort.dir}
+                                onClick={() => dealSort.handleSort("stageLabel")}
+                                className={`${TABLE.thSortable} min-w-[140px]`}
+                              />
+                              <SortableTh
+                                label="แก้ไขล่าสุด"
+                                align="left"
+                                active={dealSort.sort.key === "updatedAt"}
+                                dir={dealSort.sort.dir}
+                                onClick={() => dealSort.handleSort("updatedAt")}
+                                className={TABLE.thSortable}
+                              />
+                              <th className={TABLE.thStatic}>รายการ</th>
+                              <SortableTh
+                                label="ยอดรวม"
+                                align="right"
+                                active={dealSort.sort.key === "grossAmount"}
+                                dir={dealSort.sort.dir}
+                                onClick={() => dealSort.handleSort("grossAmount")}
+                                className={`${TABLE.thSortable} min-w-[110px]`}
+                              />
+                              <SortableTh
+                                label="หัก ณ ที่จ่าย"
+                                align="right"
+                                active={dealSort.sort.key === "whtAmount"}
+                                dir={dealSort.sort.dir}
+                                onClick={() => dealSort.handleSort("whtAmount")}
+                                className={`${TABLE.thSortable} min-w-[120px]`}
+                              />
+                              <SortableTh
+                                label="รับสุทธิ"
+                                align="right"
+                                active={dealSort.sort.key === "netPayable"}
+                                dir={dealSort.sort.dir}
+                                onClick={() => dealSort.handleSort("netPayable")}
+                                className={`${TABLE.thSortable} min-w-[120px]`}
+                              />
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-              {activeVisibleCount < activeDeals.length && (
-                <div className="mt-3 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setActiveVisibleCount((c) => c + ACTIVE_PAGE_SIZE)}
-                    className="rounded-control border border-card-border bg-white px-4 py-2 text-label font-medium text-ink-600 hover:bg-paper-field"
-                  >
-                    แสดงเพิ่มเติม ({activeDeals.length - activeVisibleCount} รายการ)
-                  </button>
-                </div>
-              )}
-            </section>
+                          </thead>
+                          <tbody>
+                            {visibleSortedActiveDeals.map((deal) => {
+                              const rowAvatar = deal.customerAvatar ?? {
+                                name: deal.customerName,
+                                avatar_initials: null,
+                                avatar_color: null,
+                                avatar_hidden: false,
+                              };
+                              const updatedAtParts = docDate.dateTimeParts(deal.updatedAt);
+                              return (
+                                <tr
+                                  key={deal.dealId}
+                                  onClick={() => navigate(`/deals/${deal.dealId}`)}
+                                  onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
+                                  className={`${TABLE.tbodyTr} group`}
+                                >
+                                  <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <CustomerAvatar
+                                        customer={rowAvatar}
+                                        size="xs"
+                                        hidden={!showAvatars}
+                                      />
+                                      <span
+                                        className="text-ink-900 truncate"
+                                        title={deal.customerName}
+                                      >
+                                        {deal.customerName}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-3 md:py-2">
+                                    <div className="text-label text-ink-900 font-medium whitespace-nowrap">
+                                      {deal.dealNumber || "-"}
+                                    </div>
+                                    {deal.taxDocNumber ? (
+                                      <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
+                                        {deal.taxDocNumber}
+                                      </div>
+                                    ) : (
+                                      <div className="text-label text-ink-200 italic mt-0.5 whitespace-nowrap">
+                                        ยังไม่มีใบกำกับภาษี
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td
+                                    className="px-3 py-3 md:py-2 text-ink-500 whitespace-nowrap tabular-nums"
+                                    title={deal.latestDocument?.doc_number || ""}
+                                  >
+                                    {deal.latestDocument?.doc_number || (
+                                      <span className="text-ink-200 italic">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 md:py-2 whitespace-nowrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
+                                      />
+                                      <span className="text-label text-ink-500">
+                                        {deal.stageLabel}
+                                      </span>
+                                    </div>
+                                    {deal.docTypeLabel && (
+                                      <div className="mt-0.5 text-label text-ink-300">
+                                        {deal.docTypeLabel}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className={`${TABLE.tdDimmed} whitespace-nowrap`}>
+                                    <div className="tabular-nums leading-tight">
+                                      <div>{updatedAtParts.date}</div>
+                                      <div className="text-label">เวลา {updatedAtParts.time}</div>
+                                    </div>
+                                  </td>
+                                  <td className={TABLE.tdDimmed}>
+                                    <span
+                                      className="truncate block max-w-[200px]"
+                                      title={
+                                        deal.itemNames?.length
+                                          ? deal.itemNames.slice(0, 2).join(", ")
+                                          : deal.itemSummary
+                                      }
+                                    >
+                                      {deal.itemNames?.length
+                                        ? deal.itemNames.slice(0, 2).join(", ")
+                                        : deal.itemSummary}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-3 md:py-2 text-right">
+                                    <span className="text-ink-500 tabular-nums min-w-[100px] inline-block text-right whitespace-nowrap">
+                                      ฿ {formatCurrency(deal.grossAmount)}
+                                      {deal.isPartiallyPaid && deal.partialReceived > 0 && (
+                                        <span className="block text-label text-warning-text font-medium leading-tight">
+                                          รับแล้ว ฿{formatCurrency(deal.partialReceived)}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-3 md:py-2 text-right">
+                                    <span
+                                      className={`inline-block tabular-nums min-w-[100px] text-right whitespace-nowrap ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}
+                                    >
+                                      ฿ {formatCurrency(deal.expectedWhtAmount)}
+                                      {deal.whtAmount > 0 &&
+                                        deal.whtAmount !== deal.expectedWhtAmount && (
+                                          <span className="block text-label font-medium text-warning-text">
+                                            สะสม ฿{formatCurrency(deal.whtAmount)}
+                                          </span>
+                                        )}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-3 md:py-2 text-right">
+                                    <span className="text-ink-900 tabular-nums font-medium min-w-[100px] inline-block text-right whitespace-nowrap">
+                                      ฿ {formatCurrency(deal.netPayable)}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {activeVisibleCount < activeDeals.length && (
+                    <div className="mt-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setActiveVisibleCount((c) => c + ACTIVE_PAGE_SIZE)}
+                        className="rounded-control border border-card-border bg-white px-4 py-2 text-label font-medium text-ink-600 hover:bg-paper-field"
+                      >
+                        แสดงเพิ่มเติม ({activeDeals.length - activeVisibleCount} รายการ)
+                      </button>
+                    </div>
+                  )}
+                </section>
               </>
             ) : (
-              <section role="tabpanel" aria-label="เสร็จสิ้น">
+              <section
+                role="tabpanel"
+                id="home-tabpanel-done"
+                aria-labelledby="home-tab-done"
+                aria-label="เสร็จสิ้น"
+              >
                 {!hasAnyDone && recentlyDone.length === 0 ? (
                   <EmptyState
                     title="ยังไม่มีงานที่เสร็จสิ้น"
@@ -1438,361 +1453,366 @@ export default function HomePage() {
                 ) : (
                   <>
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-success" />
-                      <div className="text-label font-semibold text-success-text">
-                        เสร็จสิ้นล่าสุด
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-success" />
+                        <div className="text-label font-semibold text-success-text">
+                          เสร็จสิ้นล่าสุด
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-label text-ink-400">
+                          {recentlyDone.length} รายการ
+                        </span>
+                        <button
+                          className="text-label text-ink-400 hover:text-ink-600"
+                          onClick={() => navigate("/documents?preset=paid")}
+                        >
+                          ดูเอกสารที่ชำระแล้ว
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-label text-ink-400">{recentlyDone.length} รายการ</span>
-                      <button
-                        className="text-label text-ink-400 hover:text-ink-600"
-                        onClick={() => navigate("/documents?preset=paid")}
-                      >
-                        ดูเอกสารที่ชำระแล้ว
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="text-label text-ink-500">เรียงตาม</span>
-                    <Select
-                      size="sm"
-                      containerClassName="w-auto"
-                      aria-label="เรียงตาม"
-                      value={doneSort}
-                      onChange={(e) => {
-                        setDoneSort(e.target.value as "updatedAt" | "paidAt");
-                        setDonePage(1);
-                      }}
-                    >
-                      <option value="updatedAt">แก้ไขล่าสุด</option>
-                      <option value="paidAt">วันที่ชำระ</option>
-                    </Select>
-
-                    <span className="text-label text-ink-500">ปี</span>
-                    <Select
-                      size="sm"
-                      containerClassName="w-auto"
-                      aria-label="ปี"
-                      value={doneYear}
-                      onChange={(e) => {
-                        setDoneYear(e.target.value);
-                        setDonePage(1);
-                      }}
-                    >
-                      <option value="all">ทุกปี</option>
-                      {doneYearOptions.map((y) => (
-                        <option key={y} value={y}>
-                          {toEraYear(Number(y), docDate.era)}
-                        </option>
-                      ))}
-                    </Select>
-
-                    <span className="text-label text-ink-500">เดือน</span>
-                    <Select
-                      size="sm"
-                      containerClassName="w-auto"
-                      aria-label="เดือน"
-                      value={doneMonth}
-                      onChange={(e) => {
-                        setDoneMonth(e.target.value);
-                        setDonePage(1);
-                      }}
-                    >
-                      <option value="all">ทุกเดือน</option>
-                      {DONE_MONTH_OPTIONS.map((m) => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </Select>
-                    <label
-                      className="ml-1 flex cursor-pointer select-none items-center gap-1.5 text-label text-ink-500"
-                      title="ซ่อนทุกงานที่เอกสารถูกรวมออกบิลไปยังงานขายอื่น (ใบแจ้งหนี้หรือใบวางบิล) เหลือเฉพาะงานที่ปิดจบภายในตัวเอง"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={hideCombinedDone}
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <span className="text-label text-ink-500">เรียงตาม</span>
+                      <Select
+                        size="sm"
+                        containerClassName="w-auto"
+                        aria-label="เรียงตาม"
+                        value={doneSort}
                         onChange={(e) => {
-                          setHideCombinedDone(e.target.checked);
+                          setDoneSort(e.target.value as "updatedAt" | "paidAt");
                           setDonePage(1);
                         }}
-                        className="h-3.5 w-3.5 rounded border-card-border text-primary focus:ring-primary/30"
-                      />
-                      ซ่อนงานที่ถูกรวมออกบิล
-                    </label>
-                    {(doneYear !== "all" || doneMonth !== "all" || searchQuery) && (
-                      <button
-                        type="button"
-                        onClick={clearDoneFilters}
-                        className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label text-ink-500 hover:bg-paper-field"
                       >
-                        ล้างตัวกรอง
-                      </button>
-                    )}
-                  </div>
-                  {recentlyDone.length > 0 ? (
-                    <>
-                      <div className={TABLE.cardWrapper}>
-                        <div className={TABLE.scrollBody}>
-                          <table className={`${TABLE.table} min-w-[900px]`}>
-                            <thead>
-                              <tr className={TABLE.theadTr}>
-                                <th
-                                  className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
-                                >
-                                  ลูกค้า
-                                </th>
-                                <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่งานขาย</th>
-                                <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
-                                <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
-                                <th className={`${TABLE.thStatic} w-[140px]`}>แก้ไขล่าสุด</th>
-                                <th className={`${TABLE.thStatic} w-[125px] text-right`}>ยอดรวม</th>
-                                <th className={`${TABLE.thStatic} w-[145px] text-right`}>
-                                  หัก ณ ที่จ่ายสะสม
-                                </th>
-                                <th className={`${TABLE.thStatic} w-[125px] text-right`}>
-                                  รับสุทธิ
-                                </th>
-                                <th className={TABLE.thStatic}>รายการ</th>
-                                <th className={`${TABLE.thStatic} w-[185px]`}>เอกสาร</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {paginatedDone.map((deal) => {
-                                const rowAvatar = deal.customerAvatar ?? {
-                                  name: deal.customerName,
-                                  avatar_initials: null,
-                                  avatar_color: null,
-                                  avatar_hidden: false,
-                                };
-                                const doneUpdatedParts = deal.updatedAt
-                                  ? docDate.dateTimeParts(deal.updatedAt)
-                                  : null;
-                                return (
-                                  <tr
-                                    key={deal.dealId}
-                                    onClick={() => navigate(`/deals/${deal.dealId}`)}
-                                    className={`${TABLE.tbodyTr} group`}
-                                  >
-                                    <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <CustomerAvatar
-                                          customer={rowAvatar}
-                                          size="xs"
-                                          hidden={!showAvatars}
-                                        />
-                                        <div className="min-w-0">
-                                          <div
-                                            className="truncate text-ink-900"
-                                            title={deal.customerName}
-                                          >
-                                            {deal.customerName}
-                                          </div>
-                                          {deal.customerCode && (
-                                            <div className="text-label font-mono text-primary whitespace-nowrap">
-                                              {deal.customerCode}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="px-3 py-3 md:py-2">
-                                      <div className="text-label text-ink-900 font-medium whitespace-nowrap">
-                                        {deal.dealNumber || "-"}
-                                      </div>
-                                      {deal.taxDocNumber && (
-                                        <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
-                                          {deal.taxDocNumber}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2 text-ink-500 whitespace-nowrap font-mono text-label">
-                                      {deal.completedDocNumber ? (
-                                        <>
-                                          <div>{deal.completedDocNumber}</div>
-                                          {deal.receiptCount > 1 && (
-                                            <div className="mt-0.5 font-sans text-label text-ink-400">
-                                              +{deal.receiptCount - 1} ใบเสร็จ
-                                            </div>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <span className="text-ink-200 italic font-sans">—</span>
-                                      )}
-                                    </td>
-                                    <td
-                                      className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}
-                                    >
-                                      {deal.paidAt ? docDate.date(deal.paidAt) : "-"}
-                                    </td>
-                                    <td
-                                      className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-label`}
-                                    >
-                                      {doneUpdatedParts ? (
-                                        <span className="tabular-nums leading-tight">
-                                          <span className="block">{doneUpdatedParts.date}</span>
-                                          <span className="block text-label">
-                                            เวลา {doneUpdatedParts.time}
-                                          </span>
-                                        </span>
-                                      ) : (
-                                        "-"
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums text-ink-500">
-                                      ฿ {formatCurrency(deal.grossAmount)}
-                                    </td>
-                                    <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums">
-                                      <span
-                                        className={
-                                          deal.whtAmount > 0 ? "text-danger" : "text-ink-300"
-                                        }
-                                      >
-                                        ฿ {formatCurrency(deal.whtAmount)}
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums font-medium text-ink-900">
-                                      ฿ {formatCurrency(deal.netPayable)}
-                                    </td>
-                                    <td className={`${TABLE.tdDimmed} max-w-[200px]`}>
-                                      <span
-                                        className="truncate block"
-                                        title={
-                                          deal.itemNames?.length
-                                            ? deal.itemNames.slice(0, 2).join(", ")
-                                            : deal.itemSummary || "-"
-                                        }
-                                      >
-                                        {deal.itemNames?.length
-                                          ? deal.itemNames.slice(0, 2).join(", ")
-                                          : deal.itemSummary || "-"}
-                                      </span>
-                                    </td>
-                                    <td className="max-w-[185px] overflow-hidden whitespace-nowrap px-3 py-2">
-                                      {deal.isAllVoided ? (
-                                        <span className="inline-flex rounded-control bg-ink-50 px-2 py-0.5 text-label font-semibold text-ink-500">
-                                          ยกเลิก
-                                        </span>
-                                      ) : (
-                                        <div className="space-y-1">
-                                          <div
-                                            className="flex flex-nowrap gap-1 overflow-hidden"
-                                            title={getDoneDocBadges(deal.documents)
-                                              .map(
-                                                (docType) =>
-                                                  DOC_TYPE_LABELS[docType]?.th || docType,
-                                              )
-                                              .join(" · ")}
-                                          >
-                                            {getDoneDocBadges(deal.documents).map((docType) => (
-                                              <span
-                                                key={docType}
-                                                className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
-                                                title={DOC_TYPE_LABELS[docType]?.th || docType}
-                                              >
-                                                {DOC_TYPE_SHORT[docType] ||
-                                                  docType.slice(0, 3).toUpperCase()}
-                                              </span>
-                                            ))}
-                                          </div>
-                                          {deal.billedIn && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/deals/${deal.billedIn!.dealId}`);
-                                              }}
-                                              className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-success-border bg-success-soft hover:bg-success-soft" : "border-warning-border bg-warning-soft hover:bg-warning-soft"}`}
-                                              title={
-                                                deal.billedIn.kind === "billing_note"
-                                                  ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
-                                                  : `งานนี้ถูกรวมออกบิลเป็นใบแจ้งหนี้ในงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
-                                              }
-                                            >
-                                              <span
-                                                className={`truncate text-label font-semibold leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-success-text" : "text-warning-text"}`}
-                                              >
-                                                {deal.billedIn.kind === "billing_note"
-                                                  ? "วางบิลใน"
-                                                  : "ออกบิลใน"}{" "}
-                                                {deal.billedIn.dealNumber || "—"}
-                                              </span>
-                                              <span
-                                                className={`shrink-0 text-label leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-success-text" : "text-warning-text"}`}
-                                              >
-                                                · {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
-                                              </span>
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                      {totalDonePages > 1 && (
-                        <div className="mt-3 flex flex-wrap items-center justify-center gap-1">
-                          <button
-                            className="inline-flex min-h-11 items-center px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30 md:min-h-0"
-                            disabled={donePage === 1}
-                            onClick={() => setDonePage((p) => Math.max(1, p - 1))}
-                          >
-                            ←
-                          </button>
-                          {Array.from({ length: totalDonePages }, (_, i) => i + 1)
-                            .filter((p) => {
-                              if (totalDonePages <= 7) return true;
-                              if (p === 1 || p === totalDonePages) return true;
-                              if (Math.abs(p - donePage) <= 1) return true;
-                              return false;
-                            })
-                            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
-                              acc.push(p);
-                              return acc;
-                            }, [])
-                            .map((p, i) =>
-                              p === "..." ? (
-                                <span key={`dots-${i}`} className="px-1 text-label text-ink-300">
-                                  …
-                                </span>
-                              ) : (
-                                <button
-                                  key={p}
-                                  className={`inline-flex min-h-11 min-w-9 items-center justify-center rounded px-1 py-1.5 text-label md:min-h-0 ${donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50"}`}
-                                  onClick={() => setDonePage(p)}
-                                >
-                                  {p}
-                                </button>
-                              ),
-                            )}
-                          <button
-                            className="inline-flex min-h-11 items-center px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30 md:min-h-0"
-                            disabled={donePage === totalDonePages}
-                            onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
-                          >
-                            →
-                          </button>
-                        </div>
+                        <option value="updatedAt">แก้ไขล่าสุด</option>
+                        <option value="paidAt">วันที่ชำระ</option>
+                      </Select>
+
+                      <span className="text-label text-ink-500">ปี</span>
+                      <Select
+                        size="sm"
+                        containerClassName="w-auto"
+                        aria-label="ปี"
+                        value={doneYear}
+                        onChange={(e) => {
+                          setDoneYear(e.target.value);
+                          setDonePage(1);
+                        }}
+                      >
+                        <option value="all">ทุกปี</option>
+                        {doneYearOptions.map((y) => (
+                          <option key={y} value={y}>
+                            {toEraYear(Number(y), docDate.era)}
+                          </option>
+                        ))}
+                      </Select>
+
+                      <span className="text-label text-ink-500">เดือน</span>
+                      <Select
+                        size="sm"
+                        containerClassName="w-auto"
+                        aria-label="เดือน"
+                        value={doneMonth}
+                        onChange={(e) => {
+                          setDoneMonth(e.target.value);
+                          setDonePage(1);
+                        }}
+                      >
+                        <option value="all">ทุกเดือน</option>
+                        {DONE_MONTH_OPTIONS.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <label
+                        className="ml-1 flex cursor-pointer select-none items-center gap-1.5 text-label text-ink-500"
+                        title="ซ่อนทุกงานที่เอกสารถูกรวมออกบิลไปยังงานขายอื่น (ใบแจ้งหนี้หรือใบวางบิล) เหลือเฉพาะงานที่ปิดจบภายในตัวเอง"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={hideCombinedDone}
+                          onChange={(e) => {
+                            setHideCombinedDone(e.target.checked);
+                            setDonePage(1);
+                          }}
+                          className="h-3.5 w-3.5 rounded border-card-border text-primary focus:ring-primary/30"
+                        />
+                        ซ่อนงานที่ถูกรวมออกบิล
+                      </label>
+                      {(doneYear !== "all" || doneMonth !== "all" || searchQuery) && (
+                        <button
+                          type="button"
+                          onClick={clearDoneFilters}
+                          className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label text-ink-500 hover:bg-paper-field"
+                        >
+                          ล้างตัวกรอง
+                        </button>
                       )}
-                    </>
-                  ) : (
-                    <div className="rounded-card border border-card-border bg-white p-8">
-                      <EmptyState
-                        title="ไม่พบรายการในช่วงที่เลือก"
-                        description="ลองเปลี่ยนเดือน/ปี หรือกด “ล้างตัวกรอง”"
-                      />
                     </div>
-                  )}
+                    {recentlyDone.length > 0 ? (
+                      <>
+                        <div className={TABLE.cardWrapper}>
+                          <div className={TABLE.scrollBody}>
+                            <table className={`${TABLE.table} min-w-[900px]`}>
+                              <thead>
+                                <tr className={TABLE.theadTr}>
+                                  <th
+                                    className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
+                                  >
+                                    ลูกค้า
+                                  </th>
+                                  <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่งานขาย</th>
+                                  <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
+                                  <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
+                                  <th className={`${TABLE.thStatic} w-[140px]`}>แก้ไขล่าสุด</th>
+                                  <th className={`${TABLE.thStatic} w-[125px] text-right`}>
+                                    ยอดรวม
+                                  </th>
+                                  <th className={`${TABLE.thStatic} w-[145px] text-right`}>
+                                    หัก ณ ที่จ่ายสะสม
+                                  </th>
+                                  <th className={`${TABLE.thStatic} w-[125px] text-right`}>
+                                    รับสุทธิ
+                                  </th>
+                                  <th className={TABLE.thStatic}>รายการ</th>
+                                  <th className={`${TABLE.thStatic} w-[185px]`}>เอกสาร</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {paginatedDone.map((deal) => {
+                                  const rowAvatar = deal.customerAvatar ?? {
+                                    name: deal.customerName,
+                                    avatar_initials: null,
+                                    avatar_color: null,
+                                    avatar_hidden: false,
+                                  };
+                                  const doneUpdatedParts = deal.updatedAt
+                                    ? docDate.dateTimeParts(deal.updatedAt)
+                                    : null;
+                                  return (
+                                    <tr
+                                      key={deal.dealId}
+                                      onClick={() => navigate(`/deals/${deal.dealId}`)}
+                                      className={`${TABLE.tbodyTr} group`}
+                                    >
+                                      <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <CustomerAvatar
+                                            customer={rowAvatar}
+                                            size="xs"
+                                            hidden={!showAvatars}
+                                          />
+                                          <div className="min-w-0">
+                                            <div
+                                              className="truncate text-ink-900"
+                                              title={deal.customerName}
+                                            >
+                                              {deal.customerName}
+                                            </div>
+                                            {deal.customerCode && (
+                                              <div className="text-label font-mono text-primary whitespace-nowrap">
+                                                {deal.customerCode}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-3 md:py-2">
+                                        <div className="text-label text-ink-900 font-medium whitespace-nowrap">
+                                          {deal.dealNumber || "-"}
+                                        </div>
+                                        {deal.taxDocNumber && (
+                                          <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
+                                            {deal.taxDocNumber}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 text-ink-500 whitespace-nowrap font-mono text-label">
+                                        {deal.completedDocNumber ? (
+                                          <>
+                                            <div>{deal.completedDocNumber}</div>
+                                            {deal.receiptCount > 1 && (
+                                              <div className="mt-0.5 font-sans text-label text-ink-400">
+                                                +{deal.receiptCount - 1} ใบเสร็จ
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <span className="text-ink-200 italic font-sans">—</span>
+                                        )}
+                                      </td>
+                                      <td
+                                        className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}
+                                      >
+                                        {deal.paidAt ? docDate.date(deal.paidAt) : "-"}
+                                      </td>
+                                      <td
+                                        className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-label`}
+                                      >
+                                        {doneUpdatedParts ? (
+                                          <span className="tabular-nums leading-tight">
+                                            <span className="block">{doneUpdatedParts.date}</span>
+                                            <span className="block text-label">
+                                              เวลา {doneUpdatedParts.time}
+                                            </span>
+                                          </span>
+                                        ) : (
+                                          "-"
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums text-ink-500">
+                                        ฿ {formatCurrency(deal.grossAmount)}
+                                      </td>
+                                      <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums">
+                                        <span
+                                          className={
+                                            deal.whtAmount > 0 ? "text-danger" : "text-ink-300"
+                                          }
+                                        >
+                                          ฿ {formatCurrency(deal.whtAmount)}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums font-medium text-ink-900">
+                                        ฿ {formatCurrency(deal.netPayable)}
+                                      </td>
+                                      <td className={`${TABLE.tdDimmed} max-w-[200px]`}>
+                                        <span
+                                          className="truncate block"
+                                          title={
+                                            deal.itemNames?.length
+                                              ? deal.itemNames.slice(0, 2).join(", ")
+                                              : deal.itemSummary || "-"
+                                          }
+                                        >
+                                          {deal.itemNames?.length
+                                            ? deal.itemNames.slice(0, 2).join(", ")
+                                            : deal.itemSummary || "-"}
+                                        </span>
+                                      </td>
+                                      <td className="max-w-[185px] overflow-hidden whitespace-nowrap px-3 py-2">
+                                        {deal.isAllVoided ? (
+                                          <span className="inline-flex rounded-control bg-ink-50 px-2 py-0.5 text-label font-semibold text-ink-500">
+                                            ยกเลิก
+                                          </span>
+                                        ) : (
+                                          <div className="space-y-1">
+                                            <div
+                                              className="flex flex-nowrap gap-1 overflow-hidden"
+                                              title={getDoneDocBadges(deal.documents)
+                                                .map(
+                                                  (docType) =>
+                                                    DOC_TYPE_LABELS[docType]?.th || docType,
+                                                )
+                                                .join(" · ")}
+                                            >
+                                              {getDoneDocBadges(deal.documents).map((docType) => (
+                                                <span
+                                                  key={docType}
+                                                  className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
+                                                  title={DOC_TYPE_LABELS[docType]?.th || docType}
+                                                >
+                                                  {DOC_TYPE_SHORT[docType] ||
+                                                    docType.slice(0, 3).toUpperCase()}
+                                                </span>
+                                              ))}
+                                            </div>
+                                            {deal.billedIn && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  navigate(`/deals/${deal.billedIn!.dealId}`);
+                                                }}
+                                                className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-success-border bg-success-soft hover:bg-success-soft" : "border-warning-border bg-warning-soft hover:bg-warning-soft"}`}
+                                                title={
+                                                  deal.billedIn.kind === "billing_note"
+                                                    ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
+                                                    : `งานนี้ถูกรวมออกบิลเป็นใบแจ้งหนี้ในงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
+                                                }
+                                              >
+                                                <span
+                                                  className={`truncate text-label font-semibold leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-success-text" : "text-warning-text"}`}
+                                                >
+                                                  {deal.billedIn.kind === "billing_note"
+                                                    ? "วางบิลใน"
+                                                    : "ออกบิลใน"}{" "}
+                                                  {deal.billedIn.dealNumber || "—"}
+                                                </span>
+                                                <span
+                                                  className={`shrink-0 text-label leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-success-text" : "text-warning-text"}`}
+                                                >
+                                                  ·{" "}
+                                                  {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
+                                                </span>
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        {totalDonePages > 1 && (
+                          <div className="mt-3 flex flex-wrap items-center justify-center gap-1">
+                            <button
+                              className="inline-flex min-h-11 items-center px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30 md:min-h-0"
+                              disabled={donePage === 1}
+                              onClick={() => setDonePage((p) => Math.max(1, p - 1))}
+                            >
+                              ←
+                            </button>
+                            {Array.from({ length: totalDonePages }, (_, i) => i + 1)
+                              .filter((p) => {
+                                if (totalDonePages <= 7) return true;
+                                if (p === 1 || p === totalDonePages) return true;
+                                if (Math.abs(p - donePage) <= 1) return true;
+                                return false;
+                              })
+                              .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                                acc.push(p);
+                                return acc;
+                              }, [])
+                              .map((p, i) =>
+                                p === "..." ? (
+                                  <span key={`dots-${i}`} className="px-1 text-label text-ink-300">
+                                    …
+                                  </span>
+                                ) : (
+                                  <button
+                                    key={p}
+                                    className={`inline-flex min-h-11 min-w-9 items-center justify-center rounded px-1 py-1.5 text-label md:min-h-0 ${donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50"}`}
+                                    onClick={() => setDonePage(p)}
+                                  >
+                                    {p}
+                                  </button>
+                                ),
+                              )}
+                            <button
+                              className="inline-flex min-h-11 items-center px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30 md:min-h-0"
+                              disabled={donePage === totalDonePages}
+                              onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
+                            >
+                              →
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="rounded-card border border-card-border bg-white p-8">
+                        <EmptyState
+                          title="ไม่พบรายการในช่วงที่เลือก"
+                          description="ลองเปลี่ยนเดือน/ปี หรือกด “ล้างตัวกรอง”"
+                        />
+                      </div>
+                    )}
                   </>
                 )}
-                </section>
+              </section>
             )}
           </>
         )}
