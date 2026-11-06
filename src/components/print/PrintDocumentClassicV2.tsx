@@ -22,6 +22,7 @@ import {
   estimateLineItemHeight,
 } from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
+import { isReferenceModeInvoice } from "../../lib/refSummary";
 import { printTitle } from "../../lib/docLabels";
 import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
@@ -253,6 +254,7 @@ export function PrintDocumentClassicV2({
   // not — only the VALUES hide. Previously the columns collapsed entirely
   // and the description column stretched to fill the gap.
   const showAmountValues = blankForm || !hideDeliveryAmounts;
+  const isReferenceMode = isReferenceModeInvoice(document, tableLines);
   const showFullTotals = isDeliveryNote && document.show_full_totals === true;
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
@@ -1068,18 +1070,22 @@ export function PrintDocumentClassicV2({
                   <th>
                     เลขที่<span className="en">ITEM</span>
                   </th>
-                  <th>
+                  <th colSpan={isReferenceMode ? 4 : undefined}>
                     รายการ<span className="en">DESCRIPTION</span>
                   </th>
-                  <th style={{ textAlign: "center" }}>
-                    จำนวน<span className="en">QTY</span>
-                  </th>
-                  <th style={{ textAlign: "center" }}>
-                    หน่วย<span className="en">UNIT</span>
-                  </th>
-                  <th style={{ textAlign: "right" }}>
-                    ราคา/หน่วย<span className="en">UNIT PRICE</span>
-                  </th>
+                  {!isReferenceMode && (
+                    <>
+                      <th style={{ textAlign: "center" }}>
+                        จำนวน<span className="en">QTY</span>
+                      </th>
+                      <th style={{ textAlign: "center" }}>
+                        หน่วย<span className="en">UNIT</span>
+                      </th>
+                      <th style={{ textAlign: "right" }}>
+                        ราคา/หน่วย<span className="en">UNIT PRICE</span>
+                      </th>
+                    </>
+                  )}
                   <th style={{ textAlign: "right" }}>
                     จำนวนเงิน<span className="en">AMOUNT</span>
                   </th>
@@ -1093,7 +1099,14 @@ export function PrintDocumentClassicV2({
                         the row still reads as part of the table and the first
                         column keeps its rule. */}
                     <td />
-                    {columnRulesContinuous ? (
+                    {isReferenceMode ? (
+                      <>
+                        <td colSpan={4}>
+                          <span className="print-classic-project-name">{document.task_name}</span>
+                        </td>
+                        <td />
+                      </>
+                    ) : columnRulesContinuous ? (
                       <>
                         <td>
                           {/* The project name is the heading for the work below —
@@ -1178,7 +1191,7 @@ export function PrintDocumentClassicV2({
                         ) : null}
                         <tr className={isChild ? "print-classic-dn-child" : undefined}>
                           <td className="center">{isChild ? "" : number}</td>
-                          <td className="print-classic-item-name">
+                          <td className="print-classic-item-name" colSpan={isReferenceMode ? 4 : undefined}>
                             {isChild ? (
                               <span className="print-classic-dn-child-no">{number} </span>
                             ) : null}
@@ -1226,11 +1239,15 @@ export function PrintDocumentClassicV2({
                               />
                             ) : null}
                           </td>
-                          <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
-                          <td className="center print-classic-item-unit">{item.unit}</td>
-                          <td className="right">
-                            {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
-                          </td>
+                          {!isReferenceMode && (
+                            <>
+                              <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
+                              <td className="center print-classic-item-unit">{item.unit}</td>
+                              <td className="right">
+                                {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                              </td>
+                            </>
+                          )}
                           <td className="right bold">
                             {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                           </td>
@@ -1244,10 +1261,16 @@ export function PrintDocumentClassicV2({
                     className="print-classic-blank-row"
                   >
                     <td className="center">&nbsp;</td>
-                    <td className="print-classic-item-name">&nbsp;</td>
-                    <td className="center">&nbsp;</td>
-                    <td className="center">&nbsp;</td>
-                    <td className="right">&nbsp;</td>
+                    <td className="print-classic-item-name" colSpan={isReferenceMode ? 4 : undefined}>
+                      &nbsp;
+                    </td>
+                    {!isReferenceMode && (
+                      <>
+                        <td className="center">&nbsp;</td>
+                        <td className="center">&nbsp;</td>
+                        <td className="right">&nbsp;</td>
+                      </>
+                    )}
                     <td className="right">&nbsp;</td>
                   </tr>
                 ))}

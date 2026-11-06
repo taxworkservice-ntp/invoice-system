@@ -3,6 +3,7 @@ import { formatPrintDate } from "../../lib/dates";
 import { resolveYearEra } from "../../lib/yearEra";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { getPrintableLineNote } from "../../lib/dnGroups";
+import { isReferenceModeInvoice } from "../../lib/refSummary";
 import { RefItemName } from "./RefItemName";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
@@ -53,6 +54,7 @@ export function PrintLineItemsTable({
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
   const showAmountColumns = blankForm || !hideDeliveryAmounts;
+  const isReferenceMode = isReferenceModeInvoice(document, lineItems);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle
     ? Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length)
@@ -279,36 +281,49 @@ export function PrintLineItemsTable({
                 DESCRIPTION
               </div>
             </th>
-            <th className="w-[16mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
-              จำนวน
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">QTY</div>
-            </th>
-            <th className="w-[16mm] px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
-              หน่วย
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
-                UNIT
-              </div>
-            </th>
-            {showAmountColumns && (
-              <>
-                <th className="w-[20mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
-                  ราคา/หน่วย
-                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
-                    UNIT PRICE
-                  </div>
-                </th>
-                <th className="w-[13mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
-                  ส่วนลด
-                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
-                    DISC.
-                  </div>
-                </th>
+            {isReferenceMode ? (
+              showAmountColumns ? (
                 <th className="w-[22mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                   จำนวนเงิน
                   <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                     AMOUNT
                   </div>
                 </th>
+              ) : null
+            ) : (
+              <>
+                <th className="w-[16mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
+                  จำนวน
+                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">QTY</div>
+                </th>
+                <th className="w-[16mm] px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
+                  หน่วย
+                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
+                    UNIT
+                  </div>
+                </th>
+                {showAmountColumns && (
+                  <>
+                    <th className="w-[20mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
+                      ราคา/หน่วย
+                      <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
+                        UNIT PRICE
+                      </div>
+                    </th>
+                    <th className="w-[13mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
+                      ส่วนลด
+                      <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
+                        DISC.
+                      </div>
+                    </th>
+                    <th className="w-[22mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
+                      จำนวนเงิน
+                      <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
+                        AMOUNT
+                      </div>
+                    </th>
+                  </>
+                )}
               </>
             )}
           </tr>
@@ -372,23 +387,33 @@ export function PrintLineItemsTable({
                     </div>
                   ) : null}
                 </td>
-                <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {blankForm ? "" : item.quantity}
-                </td>
-                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num-unit))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
-                  {item.unit}
-                </td>
-                {showAmountColumns && (
-                  <>
-                    <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {blankForm ? "" : item.hide_amounts_on_print ? "-" : hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
-                    </td>
+                {isReferenceMode ? (
+                  showAmountColumns ? (
                     <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                       {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                     </td>
+                  ) : null
+                ) : (
+                  <>
+                    <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                      {blankForm ? "" : item.quantity}
+                    </td>
+                    <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num-unit))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
+                      {item.unit}
+                    </td>
+                    {showAmountColumns && (
+                      <>
+                        <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                          {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                          {blankForm ? "" : item.hide_amounts_on_print ? "-" : hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                          {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
+                        </td>
+                      </>
+                    )}
                   </>
                 )}
               </tr>
@@ -405,23 +430,31 @@ export function PrintLineItemsTable({
               <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] border-t-[0.5px] border-[#E6EBF2]">
                 &nbsp;
               </td>
-              <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
-                &nbsp;
-              </td>
-              <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num-unit))] border-t-[0.5px] border-[#E6EBF2]">
-                &nbsp;
-              </td>
-              {showAmountColumns && (
+              {isReferenceMode ? (
+                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
+                  &nbsp;
+                </td>
+              ) : (
                 <>
                   <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
                     &nbsp;
                   </td>
-                  <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
+                  <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num-unit))] border-t-[0.5px] border-[#E6EBF2]">
                     &nbsp;
                   </td>
-                  <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
-                    &nbsp;
-                  </td>
+                  {showAmountColumns && (
+                    <>
+                      <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
+                        &nbsp;
+                      </td>
+                      <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
+                        &nbsp;
+                      </td>
+                      <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
+                        &nbsp;
+                      </td>
+                    </>
+                  )}
                 </>
               )}
             </tr>

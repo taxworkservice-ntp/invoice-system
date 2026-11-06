@@ -18,11 +18,38 @@ export function isRefSummaryLine(item: {
   source_document_id?: string | null;
   source_line_item_id?: string | null;
 }): boolean {
-  const zeroAmount =
-    Number(item.quantity) === 0 && Number(item.unit_price) === 0;
+  const zeroAmount = Number(item.quantity) === 0 && Number(item.unit_price) === 0;
   if (item.source_document_id && !item.source_line_item_id) return zeroAmount;
-  return (
-    zeroAmount &&
-    /^(ใบส่งของ|ใบเสนอราคา)\s/.test(item.item_name || "")
-  );
+  return zeroAmount && /^(ใบส่งของ|ใบเสนอราคา)\s/.test(item.item_name || "");
+}
+
+/**
+ * A tax invoice created in reference mode (one printed line per source)
+ * persists its sources as qty-1 lines whose unit price equals the line total,
+ * with no source line item. Detail-mode invoices always carry source line
+ * items (or a qty-0 group header), so the two shapes cannot be confused.
+ */
+export function isReferenceModeInvoice(
+  document: { doc_type?: string | null },
+  lineItems: Array<{
+    quantity?: number | null;
+    unit_price?: number | null;
+    line_total?: number | null;
+    source_document_id?: string | null;
+    source_line_item_id?: string | null;
+  }>,
+): boolean {
+  if (document.doc_type !== "invoice") return false;
+  let hasReference = false;
+  for (const item of lineItems) {
+    if (!item.source_document_id) continue;
+    if (item.source_line_item_id) return false;
+    const quantity = Number(item.quantity) || 0;
+    const price = Number(item.unit_price) || 0;
+    const total = Number(item.line_total) || 0;
+    if (quantity === 1 && price > 0 && Math.abs(price - total) < 0.01) {
+      hasReference = true;
+    }
+  }
+  return hasReference;
 }
