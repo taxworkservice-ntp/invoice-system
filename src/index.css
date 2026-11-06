@@ -1995,6 +1995,32 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-sig-cell-collector .print-classic-sig-date-fill .seg-yy {
   width: 8mm;
 }
+/* Level the dotted lines across the three billing-note signature boxes. The
+   acknowledged box already uses a 1.5mm top offset; match it in the collector
+   and issuer boxes. */
+.print-theme-classic-v2 .print-sig-3col .print-classic-sig-line {
+  margin-top: 1.5mm;
+}
+/* Match the title block height across the billing-note signature boxes so the
+   dotted signature lines stay level. The collector has no title text; its
+   role sits under the line like the other boxes. */
+.print-theme-classic-v2 .print-classic-sig-title-spacer,
+.print-theme-classic-v2 .print-classic-sig-title-block {
+  min-height: 8mm;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.print-theme-classic-v2 .print-classic-sig-cell-ack .print-classic-sig-title-row {
+  min-height: 8mm;
+}
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-title-spacer,
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-title-block,
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-cell-ack .print-classic-sig-title-row {
+  min-height: 6mm;
+}
 /* Quotation: two equal signer boxes (no company authorized box). */
 .print-theme-classic-v2 .print-sig-2eq {
   grid-template-columns: 1fr 1fr;

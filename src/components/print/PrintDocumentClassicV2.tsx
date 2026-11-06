@@ -1815,11 +1815,14 @@ export function PrintDocumentClassicV2({
                       </div>
                     </div>
                     <div className="print-classic-sig-cell print-classic-sig-cell-collector">
-                      <div className="print-classic-sig-title-row">
-                        <div className="print-classic-sig-th">ผู้วางบิล</div>
-                        <div className="print-classic-sig-th-en">BILL PRESENTED BY</div>
+                      <div className="print-classic-sig-title-spacer" aria-hidden="true">
+                        &nbsp;
                       </div>
                       <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">ผู้วางบิล</span>
+                        <span className="print-classic-sig-role-en"> / BILL PRESENTED BY</span>
+                      </div>
                       <div className="print-classic-sig-dates">
                         <div className="print-classic-sig-daterow">
                           <span className="print-classic-sig-daterow-lab">วันที่วางบิล</span>
@@ -1828,10 +1831,12 @@ export function PrintDocumentClassicV2({
                       </div>
                     </div>
                     <div className="print-classic-sig-cell">
-                      <div className="print-classic-sig-th">{clientProfile.company_name_th}</div>
-                      <div className="print-classic-sig-th-en">
-                        {clientProfile.company_name_en?.toUpperCase() ||
-                          clientProfile.company_name_th.toUpperCase()}
+                      <div className="print-classic-sig-title-block">
+                        <div className="print-classic-sig-th">{clientProfile.company_name_th}</div>
+                        <div className="print-classic-sig-th-en">
+                          {clientProfile.company_name_en?.toUpperCase() ||
+                            clientProfile.company_name_th.toUpperCase()}
+                        </div>
                       </div>
                       <div className="print-classic-sig-line">
                         {signatureUrl ? (

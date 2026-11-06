@@ -283,18 +283,21 @@ unit tests, print estimate + fill checks passed.
   acknowledged | **ผู้วางบิล** + `วันที่วางบิล` | **ผู้ออกเอกสาร** with the
   company name and stored signature/stamp. The band uses
   `print-sig-3col` (`1.5fr 1fr 1fr`); the collector date uses a compact
-  segmented fill so it fits. The dead “ผู้จ่ายเงิน” role is corrected to
-  “ผู้ออกเอกสาร”.
+  segmented fill so it fits. The collector role sits **under** the signature
+  line like the other boxes; a blank 8 mm title spacer keeps all three dotted
+  lines level (1.5 mm line offset across the band, 6 mm in compact mode).
+  The dead “ผู้จ่ายเงิน” role is corrected to “ผู้ออกเอกสาร”.
 - **Receipt:** a single **ผู้จ่ายเงิน / PAYER** acknowledgment line now sits at
   the bottom of the payment-details cell, pinned with `margin-top: auto`.
   No date on the payer line — the receipt already carries the issue/payment
   date. The company authorized signature/stamp box is unchanged.
 - **Classic V2 only.** The modern template still has the generic
   “ผู้รับเงิน / PAYEE” labels; that remains a separate follow-up.
-- `PRINT_LAYOUT_VERSION` bumped **3 → 4** so cached PDFs invalidate.
+- `PRINT_LAYOUT_VERSION` bumped **3 → 5** (3→4 for the signature bands, 4→5 for
+  the collector role-under-line/line alignment) so cached PDFs invalidate.
 - Verification: `tsc`, strict `lint`, `build`, print estimate + A4 fill checks,
-  and visual A4 checks of a Classic V2 billing note (3 boxes, dates fit) and
-  receipt (payer line, no clipping).
+  and visual A4 checks of a Classic V2 billing note (3 boxes, level lines,
+  dates fit, role under line) and receipt (payer line, no clipping).
 
 ## Pending
 
