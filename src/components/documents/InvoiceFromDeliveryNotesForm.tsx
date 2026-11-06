@@ -29,7 +29,10 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { readLastPrintTitleVariant } from "../../lib/docLabels";
+import {
+  defaultInvoicePrintTitleVariant,
+  readLastPrintTitleVariant,
+} from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { getDnLineSectionMap, getDnSectionHeaders, joinDnSectionHeaders } from "../../lib/dnGroups";
@@ -193,7 +196,9 @@ export function InvoiceFromDeliveryNotesForm() {
   // Defaults to the last selection (per browser).
   // The printed title is chosen in the print preview (the one place that owns
   // it) and remembered per browser; a new invoice inherits the last choice.
-  const [printTitleVariant] = useState(() => readLastPrintTitleVariant());
+  const [printTitleVariant, setPrintTitleVariant] = useState(() =>
+    defaultInvoicePrintTitleVariant(clientProfile) || readLastPrintTitleVariant(),
+  );
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<InvoicePresentationMode>("detail");
@@ -212,6 +217,12 @@ export function InvoiceFromDeliveryNotesForm() {
     if (clientProfile) {
       setWhtRate(clientProfile.default_wht_rate);
     }
+  }, [clientProfile]);
+
+  useEffect(() => {
+    setPrintTitleVariant(
+      defaultInvoicePrintTitleVariant(clientProfile) || readLastPrintTitleVariant(),
+    );
   }, [clientProfile]);
 
   useEffect(() => {

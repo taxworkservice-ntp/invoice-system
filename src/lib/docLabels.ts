@@ -1,4 +1,4 @@
-import type { Document, DocumentType } from "../types";
+import type { ClientProfile, Document, DocumentType } from "../types";
 
 export function invoiceLabel(vatRegistered: boolean): {
   thai: string;
@@ -51,6 +51,18 @@ export function isPrintTitleVariant(value: unknown): value is PrintTitleVariant 
 }
 
 /**
+ * Workspace default for a new VAT tax invoice. "" means the system title
+ * ("ใบกำกับภาษี"). This is only a default for document creation — the value is
+ * snapshotted into documents.print_title_variant so reprints never change.
+ */
+export function defaultInvoicePrintTitleVariant(
+  profile: Pick<ClientProfile, "print_titles_by_type"> | null | undefined,
+): string {
+  const preset = profile?.print_titles_by_type?.invoice?.preset;
+  return isPrintTitleVariant(preset) ? preset : "";
+}
+
+/**
  * Remember the last printed-title selection per browser so a new tax invoice
  * defaults to it (like the copy/ref-mode preferences). Only the choice matters
  * — the value is still stored per document.
@@ -73,9 +85,7 @@ export function writeLastPrintTitleVariant(value: string): void {
 }
 
 /** A VAT-registered invoice is a tax invoice (ใบกำกับภาษี). */
-export function isTaxInvoice(
-  doc: Pick<Document, "doc_type" | "vat_registered">,
-): boolean {
+export function isTaxInvoice(doc: Pick<Document, "doc_type" | "vat_registered">): boolean {
   return doc.doc_type === "invoice" && doc.vat_registered === true;
 }
 

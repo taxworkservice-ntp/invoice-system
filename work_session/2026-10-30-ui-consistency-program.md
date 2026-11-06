@@ -257,6 +257,26 @@ unit tests, print estimate + fill checks passed.
   (confirmation gating, cancel/no-write, save, audit reason/actor); `tsc`,
   strict `lint`, `build`.
 
+## 2026-11-06 — Tax-invoice print title default (Phase 1)
+
+- Settings › Documents now has **ชื่อเรื่องบนหัวเอกสาร** for VAT workspaces:
+  preset-only titles for a tax invoice, live Thai/English preview, owner-only.
+- New invoices default to the workspace preset; the resolved value is still
+  snapshotted into `documents.print_title_variant`, so reprints of issued
+  documents never change. Existing documents are untouched.
+- Save is deliberate: reason (≥5 chars) + type `ยืนยัน`, with an audit row in
+  `document_print_title_audit` (actor, before/after, reason).
+- RPC: `save_invoice_print_title(p_workspace_user_id, p_preset, p_reason)`.
+  Applied to production. Noted: Postgres `jsonb_set` does not create missing
+  nested keys; the RPC merges `{invoice:{preset}}` explicitly.
+- Forms (`deals/new`, invoice-from-quotation, invoice-from-DN) preselect the
+  workspace default; per-document overrides remain possible in the first two.
+- **Phase 1 only:** VAT tax invoice. Other document types and free-text display
+  names remain a later phase; credit/debit/receipt legal titles stay locked.
+- Verification: `docLabels` unit tests, settings print-title e2e (confirmation,
+  audit, restore), deal-flow + settings-numbering e2e 21/21, `tsc`, strict
+  `lint`, `build`.
+
 ## Pending
 
 - Apply `PageHeader`/`Toolbar` and one loading/empty/error rule to the remaining

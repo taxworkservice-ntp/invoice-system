@@ -31,6 +31,7 @@ import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
 import {
   PRINT_TITLE_PRESETS,
+  defaultInvoicePrintTitleVariant,
   readLastPrintTitleVariant,
   writeLastPrintTitleVariant,
 } from "../../lib/docLabels";
@@ -168,7 +169,10 @@ export function InvoiceFromQuotationForm() {
   const [showVariance, setShowVariance] = useState(false);
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
   // Defaults to the last selection (per browser).
-  const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
+  const [printTitleVariant, setPrintTitleVariant] = useState(() =>
+    defaultInvoicePrintTitleVariant(clientProfile) || readLastPrintTitleVariant(),
+  );
+  const [printTitleTouched, setPrintTitleTouched] = useState(false);
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<InvoicePresentationMode>("detail");
@@ -178,6 +182,13 @@ export function InvoiceFromQuotationForm() {
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  useEffect(() => {
+    if (printTitleTouched) return;
+    setPrintTitleVariant(
+      defaultInvoicePrintTitleVariant(clientProfile) || readLastPrintTitleVariant(),
+    );
+  }, [clientProfile, printTitleTouched]);
 
   useEffect(() => {
     const realToday = businessTodayString(null);
@@ -1279,6 +1290,7 @@ export function InvoiceFromQuotationForm() {
                       label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
                       value={printTitleVariant}
                       onChange={(event) => {
+                        setPrintTitleTouched(true);
                         setPrintTitleVariant(event.target.value);
                         writeLastPrintTitleVariant(event.target.value);
                       }}

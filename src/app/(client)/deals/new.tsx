@@ -46,6 +46,7 @@ import {
 } from "../../../lib/dnGroups";
 import {
   PRINT_TITLE_PRESETS,
+  defaultInvoicePrintTitleVariant,
   readLastPrintTitleVariant,
   writeLastPrintTitleVariant,
 } from "../../../lib/docLabels";
@@ -601,7 +602,17 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // existing draft overrides this from its stored value below.
   const discountsEnabled = isDiscountEnabled(clientProfile);
 
-  const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
+  const [printTitleVariant, setPrintTitleVariant] = useState(() =>
+    defaultInvoicePrintTitleVariant(clientProfile) || readLastPrintTitleVariant(),
+  );
+  const [printTitleTouched, setPrintTitleTouched] = useState(false);
+
+  useEffect(() => {
+    if (printTitleTouched) return;
+    setPrintTitleVariant(
+      defaultInvoicePrintTitleVariant(clientProfile) || readLastPrintTitleVariant(),
+    );
+  }, [clientProfile, printTitleTouched]);
   // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
   // workspace setting, draft edits keep their saved value frozen at hydrate.
   const frozenShowFullTotals = useRef<boolean | null>(null);
@@ -797,7 +808,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
           frozenShowFullTotals.current = draftDoc.show_full_totals;
         }
-        setPrintTitleVariant(draftDoc.print_title_variant || "");
+        setPrintTitleVariant(
+          draftDoc.print_title_variant ||
+            defaultInvoicePrintTitleVariant(clientProfile) ||
+            "",
+        );
+        setPrintTitleTouched(true);
         const hydrated: LineItemForm[] = ((lineData || []) as DocumentLineItem[]).map((line) => {
           if (draftDoc.doc_type === "delivery_note" && isDnSectionMarker(line)) {
             return {
@@ -3313,6 +3329,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
                     value={printTitleVariant}
                     onChange={(e) => {
+                      setPrintTitleTouched(true);
                       setPrintTitleVariant(e.target.value);
                       writeLastPrintTitleVariant(e.target.value);
                     }}

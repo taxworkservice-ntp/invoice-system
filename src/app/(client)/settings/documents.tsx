@@ -19,6 +19,7 @@ import type { ClassicV2SectionFontKey } from "../../../constants";
 import { FontPreviewChip } from "../../../components/ui/FontPreviewChip";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import { SettingsTabs } from "./_components/SettingsTabs";
+import { InvoicePrintTitleSetting } from "./_components/InvoicePrintTitleSetting";
 import type { ClientProfile } from "../../../types";
 
 const DOC_VISIBILITY_TYPES = [
@@ -672,6 +673,8 @@ export default function SettingsDocumentsPage() {
             </SettingRow>
           </div>
         </SectionCard>
+
+        <InvoicePrintTitleSetting />
 
         <SectionCard title="เทมเพลตเอกสาร" description="รูปแบบ PDF และข้อความท้ายเอกสาร — มีผลกับเอกสารใหม่เท่านั้น">
           <div className="divide-y divide-line-faint">

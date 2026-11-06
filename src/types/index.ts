@@ -117,6 +117,10 @@ export interface ClientProfile {
   /** Per-document-type closing-terms text (null = fall back to classic_terms).
    * Keys: quotation/invoice/billing_note/receipt/credit_note/debit_note. */
   classic_terms_by_type?: Record<string, string> | null;
+  /** Workspace default printed titles per document type (phase 1: invoice). */
+  print_titles_by_type?: {
+    invoice?: { preset?: string | null } | null;
+  } | null;
   bank_name: string | null;
   bank_account: string | null;
   /** SSO employer identifiers for สปส.1-10 filing (branch defaults to head office). */
