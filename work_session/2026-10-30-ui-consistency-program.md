@@ -8,20 +8,23 @@ token/control sweep. No database, schema, money, stock or print changes.
 
 ## Commits
 
-| Commit    | Slice                                                         |
-| --------- | ------------------------------------------------------------- |
-| `c466ab4` | `feat(deals): one workflow model and shared lifecycle UI`     |
-| `4304137` | `feat(ui): shared kit and documents/payments consistency`     |
-| `300c083` | `feat(documents): unified guide rails and tokenized forms`    |
-| `db14d08` | `chore(design): enforce strict tokens on migrated surfaces`   |
-| `354398f` | `refactor(deals): extract detail surfaces and branch billing` |
-| `16014fc` | `chore(design): finish app-wide token and control sweep`      |
-| `cc39c32` | `fix(deals): close workflow dead ends and false-done states`  |
+| Commit    | Slice                                                          |
+| --------- | -------------------------------------------------------------- |
+| `c466ab4` | `feat(deals): one workflow model and shared lifecycle UI`      |
+| `4304137` | `feat(ui): shared kit and documents/payments consistency`      |
+| `300c083` | `feat(documents): unified guide rails and tokenized forms`     |
+| `db14d08` | `chore(design): enforce strict tokens on migrated surfaces`    |
+| `354398f` | `refactor(deals): extract detail surfaces and branch billing`  |
+| `16014fc` | `chore(design): finish app-wide token and control sweep`       |
+| `cc39c32` | `fix(deals): close workflow dead ends and false-done states`   |
+| `ce65d64` | `fix(home): restore gold favorite star`                        |
+| `61236c3` | `fix(home): shared TabList for Active/Done queues`             |
+| `330d579` | `feat(deals): low-skill workflow clarity and date input fixes` |
 
 Rollback tags: `checkpoint/pre-deal-workflow-2026-10-30`,
 `checkpoint/post-deal-workflow`, `checkpoint/post-ui-consistency`,
 `checkpoint/post-deal-loop`, `checkpoint/app-consistency`,
-`checkpoint/workflow-gaps-closed`.
+`checkpoint/workflow-gaps-closed`, `checkpoint/workflow-clarity-ux`.
 
 ## UI kit
 
@@ -133,6 +136,34 @@ Closed the 7 dead-end / false-done states found in the pre-deploy audit:
 Verification: `tsc` clean, `lint` 0 errors, `build` passed, unit 28/28
 (workflow+amount), e2e 19/19. Staff notice: deals that were falsely "done"
 will correctly return to active.
+
+## Low-skill clarity + date input fixes (`330d579`, tag `checkpoint/workflow-clarity-ux`)
+
+- Shortcut cards carry warning-tinted consequence lines (`ACTION_CONSEQUENCES`;
+  collect → per-invoice collection, no consolidated statement). Billing/collect
+  descriptions corrected to the verified tax fact (invoice = tax invoice;
+  billing note is post-invoice collection cover).
+- Void button relabeled "แก้ไข (ฉบับเดิมไว้)"; keeps-history notice unchanged.
+- New `DealConceptStrip` (ร่าง → ส่ง → รับเงิน) shown only while a deal has
+  never passed drafts; auto-hides on first sent document.
+- `DateInput` opens the native picker from a visible calendar button (fixes the
+  off-screen popup for all 6 consumers); auto-open on focus removed.
+- Invoice-from-DN issue date restyled to the delivery-note card pattern
+  (status pill + date-and-weekday confirmation + constrained width).
+- "ช่วงวันที่ส่งของ" filter moved from step 1 into step 2 above the DN list,
+  rendered once a customer is selected. Same state, query and guide rail.
+- Fixed a self-caught wrong e2e assertion during the run (convert-as-primary
+  carries no warning — correct); extended `next-step-choice.spec` with
+  consequence assertions.
+
+Verification: `tsc` clean, `lint` 0 errors, `build` passed, unit 296/297
+(sole failure = pre-existing stale `pdfWarm`), e2e 20/20 across journey +
+next-step + combined-billing. Merged to `main`; Vercel production deploy
+triggered.
+
+Parked for later: printed-title option in the confirm modal (Slice F) — spec
+locked (single shared section in `InvoiceCreateConfirmModal`, IQF selector
+moves, IDNF gains the control, no new presets, VAT-gated).
 
 ## Pending
 
