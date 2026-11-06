@@ -22,7 +22,7 @@ import {
   estimateLineItemHeight,
 } from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
-import { isReferenceModeInvoice } from "../../lib/refSummary";
+import { isReferenceModeInvoice, referenceLineLabel, referenceLineNote } from "../../lib/refSummary";
 import { printTitle } from "../../lib/docLabels";
 import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
@@ -1070,9 +1070,14 @@ export function PrintDocumentClassicV2({
                   <th>
                     เลขที่<span className="en">ITEM</span>
                   </th>
-                  <th colSpan={isReferenceMode ? 4 : undefined}>
+                  <th colSpan={isReferenceMode ? 2 : undefined}>
                     รายการ<span className="en">DESCRIPTION</span>
                   </th>
+                  {isReferenceMode && (
+                    <th colSpan={2} style={{ textAlign: "left" }}>
+                      วันที่<span className="en">DATE</span>
+                    </th>
+                  )}
                   {!isReferenceMode && (
                     <>
                       <th style={{ textAlign: "center" }}>
@@ -1101,9 +1106,10 @@ export function PrintDocumentClassicV2({
                     <td />
                     {isReferenceMode ? (
                       <>
-                        <td colSpan={4}>
+                        <td colSpan={2}>
                           <span className="print-classic-project-name">{document.task_name}</span>
                         </td>
+                        <td colSpan={2} />
                         <td />
                       </>
                     ) : columnRulesContinuous ? (
@@ -1165,6 +1171,14 @@ export function PrintDocumentClassicV2({
                       item.discount_amount > 0 || item.discount_percent > 0;
                     const deliveryNoteRef = lineDeliveryNoteMap[item.id];
                     const printableNote = getPrintableLineNote(item.line_note);
+                    const showReferenceDate =
+                      isReferenceMode && Boolean(deliveryNoteRef?.issue_date);
+                    const displayName = showReferenceDate
+                      ? referenceLineLabel(item.item_name)
+                      : item.item_name;
+                    const displayNote = showReferenceDate
+                      ? referenceLineNote(printableNote)
+                      : printableNote;
                     return (
                       <Fragment key={item.id}>
                         {header ? (
@@ -1191,14 +1205,17 @@ export function PrintDocumentClassicV2({
                         ) : null}
                         <tr className={isChild ? "print-classic-dn-child" : undefined}>
                           <td className="center">{isChild ? "" : number}</td>
-                          <td className="print-classic-item-name" colSpan={isReferenceMode ? 4 : undefined}>
+                          <td
+                            className="print-classic-item-name"
+                            colSpan={isReferenceMode ? 2 : undefined}
+                          >
                             {isChild ? (
                               <span className="print-classic-dn-child-no">{number} </span>
                             ) : null}
-                            <RefItemName name={item.item_name} />
-                            {printableNote ? (
+                            <RefItemName name={displayName} />
+                            {displayNote ? (
                               <div className="print-classic-item-note">
-                                {printableNote}
+                                {displayNote}
                               </div>
                             ) : null}
                             {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
@@ -1209,7 +1226,7 @@ export function PrintDocumentClassicV2({
                                   : ""}
                               </div>
                             ) : null}
-                            {document.show_dn_variance && item.source_document_id ? (() => {
+                            {!isReferenceMode && document.show_dn_variance && item.source_document_id ? (() => {
                               const parts = getDnVarianceParts({
                                 deliveredQty: item.source_delivered_qty,
                                 billedQty: Number(item.quantity) || 0,
@@ -1248,6 +1265,13 @@ export function PrintDocumentClassicV2({
                               </td>
                             </>
                           )}
+                          {isReferenceMode && (
+                            <td colSpan={2} className="print-classic-item-date">
+                              {deliveryNoteRef?.issue_date
+                                ? formatPrintDate(deliveryNoteRef.issue_date, era)
+                                : "—"}
+                            </td>
+                          )}
                           <td className="right bold">
                             {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                           </td>
@@ -1261,9 +1285,10 @@ export function PrintDocumentClassicV2({
                     className="print-classic-blank-row"
                   >
                     <td className="center">&nbsp;</td>
-                    <td className="print-classic-item-name" colSpan={isReferenceMode ? 4 : undefined}>
+                    <td className="print-classic-item-name" colSpan={isReferenceMode ? 2 : undefined}>
                       &nbsp;
                     </td>
+                    {isReferenceMode && <td colSpan={2}>&nbsp;</td>}
                     {!isReferenceMode && (
                       <>
                         <td className="center">&nbsp;</td>

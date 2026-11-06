@@ -220,6 +220,25 @@ Verification: `tsc` clean, `lint` 0 errors, `build` passed, e2e 20/20.
 Verification: `tsc` clean, `lint` 0 errors, `build` passed, 32 numeric/ref-print
 unit tests, print estimate + fill checks passed.
 
+## 2026-11-06 — Reference-mode DATE column
+
+- Reference-mode invoices now print a dedicated **วันที่ / DATE** column instead
+  of embedding the date in the description. Source: the existing print map
+  (`lineDeliveryNoteMap[item.id].issue_date`), which already resolves both
+  delivery notes and quotations — no DB migration.
+- Modern template: `NO. | DESCRIPTION | DATE | AMOUNT`.
+  Classic V2: `No | Description (colSpan 2) | Date (colSpan 2) | Amount`.
+  Detail-mode invoices are unchanged.
+- New creation labels: delivery notes store `ใบส่งของ DN-…` (date removed) and
+  quotation notes store only `รายการ N บรรทัด` (date removed). Old invoices are
+  cleaned at print/preview time (`referenceLineLabel` / `referenceLineNote`) when
+  the source date is available, so the date never appears twice.
+- The confirmation modal reference preview mirrors the print:
+  `รายการ | วันที่ | จำนวนเงิน`, fed by `sourceDateById` in
+  `buildInvoicePreview`.
+- Tests: `refSummary` cleanup + `invoiceFromSources` dateLabel; print estimate
+  and fill checks pass.
+
 ## Pending
 
 - Apply `PageHeader`/`Toolbar` and one loading/empty/error rule to the remaining

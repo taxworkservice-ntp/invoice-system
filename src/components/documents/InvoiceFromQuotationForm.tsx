@@ -511,10 +511,7 @@ export function InvoiceFromQuotationForm() {
         return {
           id: qt.id,
           refItemName: `ใบเสนอราคา ${qtLabel}`,
-          refLineNote:
-            [dateLabel ? `วันที่เสนอราคา: ${dateLabel}` : null, `รายการ ${billableCount} บรรทัด`]
-              .filter(Boolean)
-              .join(" · ") || null,
+          refLineNote: `รายการ ${billableCount} บรรทัด`,
           detailHeaderName: `ใบเสนอราคา ${qtLabel}`,
           detailHeaderNote: dateLabel ? `วันที่เสนอราคา: ${dateLabel}` : null,
           lines: lines.map<InvoiceInputLine>((line) => ({
@@ -583,8 +580,18 @@ export function InvoiceFromQuotationForm() {
     [detailRecords],
   );
   const referencePreview = useMemo(
-    () => buildInvoicePreview(referenceRecords, "reference"),
-    [referenceRecords],
+    () =>
+      buildInvoicePreview(
+        referenceRecords,
+        "reference",
+        new Map(
+          selectedQuotations.map((qt) => [
+            qt.id,
+            qt.issue_date ? docDate.date(qt.issue_date) : null,
+          ]),
+        ),
+      ),
+    [referenceRecords, selectedQuotations, docDate],
   );
   const billableSourceCount = useMemo(
     () =>

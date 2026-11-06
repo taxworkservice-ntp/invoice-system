@@ -189,6 +189,52 @@ function PreviewTable({
   preview: InvoicePreview;
   mode: InvoicePresentationMode;
 }) {
+  if (preview.mode === "reference") {
+    return (
+      <div className="overflow-hidden rounded-control border border-card-border">
+        <div className="max-h-72 overflow-auto">
+          <table className="w-full text-label">
+            <thead className="sticky top-0 z-10 bg-paper-field text-ink-500">
+              <tr>
+                <th scope="col" className="px-2 py-1.5 text-left font-medium">
+                  รายการ
+                </th>
+                <th scope="col" className="w-28 px-2 py-1.5 text-left font-medium">
+                  วันที่
+                </th>
+                <th scope="col" className="w-24 px-2 py-1.5 text-right font-medium">
+                  จำนวนเงิน
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line-faint">
+              {preview.rows.map((row) => (
+                <tr key={row.key} className={row.isManual ? "bg-paper-warm/40" : undefined}>
+                  <td className="px-2 py-1.5 align-top">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-ink-800" title={row.name}>
+                        {row.name}
+                      </div>
+                      {row.note ? (
+                        <div className="truncate text-label text-ink-400" title={row.note}>
+                          {row.note}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-2 py-1.5 align-top text-ink-600">{row.dateLabel || "—"}</td>
+                  <td className="px-2 py-1.5 text-right align-top font-medium tabular-nums text-ink-900">
+                    <Money value={row.total} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-control border border-card-border">
       <div className="max-h-72 overflow-auto">
@@ -243,7 +289,7 @@ function PreviewTable({
                     ))}
                   </Fragment>
                 ))
-              : preview.rows.map((row) => <PreviewRow key={row.key} row={row} mode={mode} />)}
+              : null}
           </tbody>
         </table>
       </div>

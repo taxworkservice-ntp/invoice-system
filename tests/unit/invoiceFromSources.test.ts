@@ -160,16 +160,24 @@ describe("buildInvoicePreview", () => {
 
   it("lists one row per source plus manual rows in reference mode", () => {
     const records = buildInvoiceLineRecords({ mode: "reference", sources, manualLines: manual });
-    const preview = buildInvoicePreview(records, "reference");
+    const preview = buildInvoicePreview(
+      records,
+      "reference",
+      new Map([
+        ["DN-1", "1 ต.ค. 69"],
+        ["DN-2", "2 ต.ค. 69"],
+      ]),
+    );
 
     expect(preview.mode).toBe("reference");
     if (preview.mode !== "reference") return;
     expect(preview.rowCount).toBe(3);
     expect(preview.rows.map((row) => row.name)).toEqual([
-      "ใบส่งของ DN-1 วันที่: 1 ต.ค. 69",
-      "ใบส่งของ DN-2 วันที่: 1 ต.ค. 69",
+      "ใบส่งของ DN-1",
+      "ใบส่งของ DN-2",
       "ค่าติดตั้ง",
     ]);
+    expect(preview.rows.map((row) => row.dateLabel)).toEqual(["1 ต.ค. 69", "2 ต.ค. 69", null]);
     expect(preview.rows[2].isManual).toBe(true);
   });
 });

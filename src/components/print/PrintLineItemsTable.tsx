@@ -3,7 +3,7 @@ import { formatPrintDate } from "../../lib/dates";
 import { resolveYearEra } from "../../lib/yearEra";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { getPrintableLineNote } from "../../lib/dnGroups";
-import { isReferenceModeInvoice } from "../../lib/refSummary";
+import { isReferenceModeInvoice, referenceLineLabel, referenceLineNote } from "../../lib/refSummary";
 import { RefItemName } from "./RefItemName";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
@@ -281,6 +281,14 @@ export function PrintLineItemsTable({
                 DESCRIPTION
               </div>
             </th>
+            {isReferenceMode && (
+              <th className="w-[22mm] px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
+                วันที่
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
+                  DATE
+                </div>
+              </th>
+            )}
             {isReferenceMode ? (
               showAmountColumns ? (
                 <th className="w-[22mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
@@ -333,6 +341,14 @@ export function PrintLineItemsTable({
             const hasLineDiscount =
               item.discount_amount > 0 || item.discount_percent > 0;
             const printableNote = getPrintableLineNote(item.line_note);
+            const reference = lineDeliveryNoteMap[item.id];
+            const showReferenceDate = isReferenceMode && Boolean(reference?.issue_date);
+            const displayName = showReferenceDate
+              ? referenceLineLabel(item.item_name)
+              : item.item_name;
+            const displayNote = showReferenceDate
+              ? referenceLineNote(printableNote)
+              : printableNote;
 
             return (
               <tr key={item.id} className={getRowClass()}>
@@ -340,10 +356,10 @@ export function PrintLineItemsTable({
                   {startIndex + index}
                 </td>
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#111827] border-t-[0.5px] border-[#E6EBF2] break-words">
-                  <div className="leading-[14px]"><RefItemName name={item.item_name} /></div>
-                  {printableNote ? (
+                  <div className="leading-[14px]"><RefItemName name={displayName} /></div>
+                  {displayNote ? (
                     <div className="mt-0.5 whitespace-pre-line text-[calc(9px*var(--modern-fs-items))] leading-[12px] text-[#1F2937]">
-                      {printableNote}
+                      {displayNote}
                     </div>
                   ) : null}
                   {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
@@ -354,7 +370,7 @@ export function PrintLineItemsTable({
                         : ""}
                     </div>
                   ) : null}
-                  {showInlineDeliveryNotes && lineDeliveryNoteMap[item.id] ? (
+                  {!isReferenceMode && showInlineDeliveryNotes && lineDeliveryNoteMap[item.id] ? (
                     <div className="mt-0.5 text-[calc(9px*var(--modern-fs-items))] text-[#1F2937]">
                       อ้างอิง {lineDeliveryNoteMap[item.id].number}
                       {lineDeliveryNoteMap[item.id].issue_date
@@ -362,7 +378,7 @@ export function PrintLineItemsTable({
                         : ""}
                     </div>
                   ) : null}
-                  {document.show_dn_variance && item.source_document_id ? (() => {
+                  {!isReferenceMode && document.show_dn_variance && item.source_document_id ? (() => {
                     const parts = getDnVarianceParts({
                       deliveredQty: item.source_delivered_qty,
                       billedQty: Number(item.quantity) || 0,
@@ -387,6 +403,11 @@ export function PrintLineItemsTable({
                     </div>
                   ) : null}
                 </td>
+                {isReferenceMode && (
+                  <td className="px-2 py-1.5 text-left text-[calc(10px*var(--modern-fs-num))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
+                    {reference?.issue_date ? formatPrintDate(reference.issue_date, era) : "—"}
+                  </td>
+                )}
                 {isReferenceMode ? (
                   showAmountColumns ? (
                     <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
@@ -430,6 +451,11 @@ export function PrintLineItemsTable({
               <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] border-t-[0.5px] border-[#E6EBF2]">
                 &nbsp;
               </td>
+              {isReferenceMode && (
+                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
+                  &nbsp;
+                </td>
+              )}
               {isReferenceMode ? (
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] border-t-[0.5px] border-[#E6EBF2]">
                   &nbsp;

@@ -53,3 +53,26 @@ export function isReferenceModeInvoice(
   }
   return hasReference;
 }
+
+/**
+ * Older reference lines stored the date inside the description
+ * ("DN-… วันที่: 6 พ.ย. 2569"). When the print shows a dedicated DATE column,
+ * the date must not appear twice — strip the embedded suffix for display only.
+ */
+export function referenceLineLabel(name: string): string {
+  return name.replace(/\s*วันที่:\s*.*$/u, "").trim();
+}
+
+/**
+ * Quotation reference notes stored "วันที่เสนอราคา: … · รายการ N บรรทัด".
+ * The date moves to its own column; keep the rest of the note.
+ */
+export function referenceLineNote(note: string | null | undefined): string | null {
+  if (!note) return null;
+  const cleaned = note
+    .replace(/(?:^|·)\s*วันที่(?:เสนอราคา)?:\s*[^·]+/gu, "")
+    .replace(/(^|\s)·\s*/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  return cleaned || null;
+}

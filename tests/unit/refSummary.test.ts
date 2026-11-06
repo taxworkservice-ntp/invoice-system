@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isReferenceModeInvoice } from "../../src/lib/refSummary";
+import {
+  isReferenceModeInvoice,
+  referenceLineLabel,
+  referenceLineNote,
+} from "../../src/lib/refSummary";
 
 const sourceLine = (overrides: Record<string, unknown> = {}) => ({
   quantity: 1,
@@ -63,5 +67,21 @@ describe("isReferenceModeInvoice", () => {
         },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("reference line cleanup", () => {
+  it("removes the date suffix from an old delivery-note line", () => {
+    expect(referenceLineLabel("DN-2569-11-0001 วันที่: 6 พ.ย. 2569")).toBe("DN-2569-11-0001");
+    expect(referenceLineLabel("ใบส่งของ DN-2569-11-0001")).toBe("ใบส่งของ DN-2569-11-0001");
+  });
+
+  it("keeps the remaining notes when removing a quotation date", () => {
+    expect(referenceLineNote("วันที่เสนอราคา: 5 พ.ย. 2569 · รายการ 3 บรรทัด")).toBe(
+      "รายการ 3 บรรทัด",
+    );
+    expect(referenceLineNote("รายการ 3 บรรทัด")).toBe("รายการ 3 บรรทัด");
+    expect(referenceLineNote("วันที่เสนอราคา: 5 พ.ย. 2569")).toBeNull();
+    expect(referenceLineNote(null)).toBeNull();
   });
 });

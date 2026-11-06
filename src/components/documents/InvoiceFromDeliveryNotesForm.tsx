@@ -647,7 +647,7 @@ export function InvoiceFromDeliveryNotesForm() {
         const dateLabel = dn.issue_date ? docDate.date(dn.issue_date) : "";
         return {
           id: dn.id,
-          refItemName: dn.issue_date ? `${dnLabel} วันที่: ${dateLabel}` : dnLabel,
+          refItemName: `ใบส่งของ ${dnLabel}`,
           refLineNote: null,
           detailHeaderName: `ใบส่งของ ${dnLabel}`,
           detailHeaderNote: dn.issue_date ? `วันที่ส่งของ: ${dateLabel}` : null,
@@ -719,8 +719,18 @@ export function InvoiceFromDeliveryNotesForm() {
     [detailRecords],
   );
   const referencePreview = useMemo(
-    () => buildInvoicePreview(referenceRecords, "reference"),
-    [referenceRecords],
+    () =>
+      buildInvoicePreview(
+        referenceRecords,
+        "reference",
+        new Map(
+          selectedDeliveryNotes.map((dn) => [
+            dn.id,
+            dn.issue_date ? docDate.date(dn.issue_date) : null,
+          ]),
+        ),
+      ),
+    [referenceRecords, selectedDeliveryNotes, docDate],
   );
   const billableSourceCount = useMemo(
     () =>

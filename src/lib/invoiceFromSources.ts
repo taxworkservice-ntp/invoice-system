@@ -1,4 +1,4 @@
-import { isRefSummaryLine } from "./refSummary";
+import { isRefSummaryLine, referenceLineLabel, referenceLineNote } from "./refSummary";
 
 /**
  * Shared line-shape rules for invoices created from delivery notes or
@@ -79,6 +79,8 @@ export interface InvoicePreviewRow {
   discountPercent: number;
   total: number;
   isManual: boolean;
+  /** Pre-formatted source date for reference mode (delivery note/quotation). */
+  dateLabel?: string | null;
 }
 
 export interface InvoicePreviewGroup {
@@ -240,17 +242,22 @@ export function buildInvoiceLineRecords({
   return records;
 }
 
-function previewRow(record: InvoiceLineRecord): InvoicePreviewRow {
+function previewRow(
+  record: InvoiceLineRecord,
+  dateLabel: string | null = null,
+): InvoicePreviewRow {
+  const hasDate = Boolean(dateLabel);
   return {
     key: `${record.source_document_id ?? "manual"}:${record.sort_order}`,
-    name: record.item_name,
-    note: record.line_note,
+    name: hasDate ? referenceLineLabel(record.item_name) : record.item_name,
+    note: hasDate ? referenceLineNote(record.line_note) : record.line_note,
     quantity: record.quantity,
     unit: record.unit,
     unitPrice: record.unit_price,
     discountPercent: record.discount_percent,
     total: record.line_total,
     isManual: record.source_document_id === null,
+    dateLabel,
   };
 }
 
@@ -262,9 +269,17 @@ function previewRow(record: InvoiceLineRecord): InvoicePreviewRow {
 export function buildInvoicePreview(
   records: InvoiceLineRecord[],
   mode: InvoicePresentationMode,
+  sourceDateById?: Map<string, string | null>,
 ): InvoicePreview {
   if (mode === "reference") {
-    const rows = records.map(previewRow);
+    const rows = records.map((record) =>
+      previewRow(
+        record,
+        record.source_document_id
+          ? sourceDateById?.get(record.source_document_id) ?? null
+          : null,
+      ),
+    );
     return { mode, rows, rowCount: rows.length };
   }
 
