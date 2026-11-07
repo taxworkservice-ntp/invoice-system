@@ -357,8 +357,11 @@ unit tests, print estimate + fill checks passed.
 - Verification: `tsc`, strict `lint`, `build`, `vitest` unit suite (316 tests,
   excluding the known stale `pdfWarm`), new `docNumberFormat` + `numberingDiff`
   tests.
-- Not covered locally: the admin tab path (local mode has no service-role key)
-  and an admin e2e account; verify on staging with an admin login.
+- Production RPC check (test workspace, owner JWT): `preview_doc_number` returns
+  the expected shape for all five presets; both `admin_save_doc_number_format`
+  and a direct `format_preset` update are rejected with “Only an operator admin
+  can change the document number format”. The admin-tab UI itself still needs an
+  admin login to exercise.
 
 ### Still pending
 
