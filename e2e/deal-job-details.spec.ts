@@ -63,8 +63,18 @@ test.describe("deal form — job details on a line", () => {
       await expect(colorField).toBeVisible();
       await colorField.fill("ฟอยล์ทอง");
 
+      // Dimension fields allow 3 decimals and carry through to the summary.
+      const width = editor.getByPlaceholder("24.5");
+      const height = editor.getByPlaceholder("35.5");
+      await width.fill("13.755");
+      await height.fill("75.5");
+      await editor.getByRole("combobox", { name: "หน่วย" }).selectOption("นิ้ว");
+      await expect(width).toHaveValue("13.755");
+      await expect(height).toHaveValue("75.5");
+      await expect(editor.getByText(/13\.755x75\.5 นิ้ว/)).toBeVisible();
+
       await expect(editor.getByRole("button", { name: "แก้ไขรายละเอียดงาน" })).toBeVisible();
-      await expect(editor.getByText(/1\/\d+ ช่อง/)).toBeVisible();
+      await expect(editor.getByText(/\d+\/\d+ ช่อง/)).toBeVisible();
     } finally {
       await client.from("items").delete().eq("id", itemId);
       await client.from("customers").delete().eq("id", customerId);

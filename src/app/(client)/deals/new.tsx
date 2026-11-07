@@ -1575,22 +1575,22 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                               <NumericInput
                                 bare
                                 value={width === "" ? null : Number(width)}
-                                maxFractionDigits={2}
+                                maxFractionDigits={3}
                                 onTextChange={(text) =>
                                   updateJobDetail(item.id, `${field.field_key}_width`, text)
                                 }
-                                placeholder="24"
+                                placeholder="24.5"
                                 className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                               />
                               <span className="text-label text-ink-400">x</span>
                               <NumericInput
                                 bare
                                 value={height === "" ? null : Number(height)}
-                                maxFractionDigits={2}
+                                maxFractionDigits={3}
                                 onTextChange={(text) =>
                                   updateJobDetail(item.id, `${field.field_key}_height`, text)
                                 }
-                                placeholder="35"
+                                placeholder="35.5"
                                 className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                               />
                               <Select
@@ -1616,6 +1616,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                 <option value="เมตร">เมตร</option>
                               </Select>
                             </div>
+                            <p className="mt-1 text-label text-ink-400">
+                              ทศนิยมได้สูงสุด 3 ตำแหน่ง
+                            </p>
                           </div>
                         );
                       }
