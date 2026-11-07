@@ -1,15 +1,25 @@
 import { DOC_TYPE_LABELS } from "../constants";
-import type { DocumentType } from "../types";
+import type { DocNumberSequence, DocumentType } from "../types";
+import { RESET_LABELS, formatOption } from "./docNumberFormat";
 
 export interface NumberingDraft {
   doc_type: DocumentType;
   prefix: string;
-  reset_yearly: boolean;
   start_sequence: number;
 }
 
+export interface AdminNumberingDraft {
+  doc_type: DocumentType;
+  format_preset: string;
+  seq_padding: number;
+  reset_period: string;
+}
+
+export type NumberingChangeField =
+  "prefix" | "start_sequence" | "format_preset" | "seq_padding" | "reset_period";
+
 export interface NumberingFieldChange {
-  field: "prefix" | "reset_yearly" | "start_sequence";
+  field: NumberingChangeField;
   label: string;
   before: string;
   after: string;
@@ -34,14 +44,23 @@ const DOC_ORDER: DocumentType[] = [
 export function toNumberingDraft(row: {
   doc_type: DocumentType;
   prefix: string;
-  reset_yearly: boolean;
   start_sequence: number;
 }): NumberingDraft {
   return {
     doc_type: row.doc_type,
     prefix: row.prefix,
-    reset_yearly: row.reset_yearly,
     start_sequence: row.start_sequence,
+  };
+}
+
+export function toAdminNumberingDraft(
+  row: Pick<DocNumberSequence, "doc_type" | "format_preset" | "seq_padding" | "reset_period">,
+): AdminNumberingDraft {
+  return {
+    doc_type: row.doc_type,
+    format_preset: row.format_preset,
+    seq_padding: row.seq_padding,
+    reset_period: row.reset_period,
   };
 }
 
@@ -65,14 +84,6 @@ export function buildNumberingDiff(
         after: afterPrefix || "—",
       });
     }
-    if (before.reset_yearly !== after.reset_yearly) {
-      fields.push({
-        field: "reset_yearly",
-        label: "รีเซ็ตเลขรัน",
-        before: before.reset_yearly ? "ทุกเดือน" : "ไม่รีเซ็ต",
-        after: after.reset_yearly ? "ทุกเดือน" : "ไม่รีเซ็ต",
-      });
-    }
     if (before.start_sequence !== after.start_sequence) {
       fields.push({
         field: "start_sequence",
@@ -82,11 +93,49 @@ export function buildNumberingDiff(
       });
     }
     if (fields.length > 0) {
-      changes.push({
-        docType,
-        label: DOC_TYPE_LABELS[docType].th,
-        changes: fields,
+      changes.push({ docType, label: DOC_TYPE_LABELS[docType].th, changes: fields });
+    }
+  }
+  return changes;
+}
+
+export function buildAdminNumberingDiff(
+  baseline: Partial<Record<DocumentType, AdminNumberingDraft>>,
+  next: Partial<Record<DocumentType, AdminNumberingDraft>>,
+): NumberingChange[] {
+  const changes: NumberingChange[] = [];
+  for (const docType of DOC_ORDER) {
+    const before = baseline[docType];
+    const after = next[docType];
+    if (!before || !after) continue;
+    const fields: NumberingFieldChange[] = [];
+    if (before.format_preset !== after.format_preset) {
+      fields.push({
+        field: "format_preset",
+        label: "รูปแบบ",
+        before: formatOption(before.format_preset)?.label ?? before.format_preset,
+        after: formatOption(after.format_preset)?.label ?? after.format_preset,
       });
+    }
+    if (before.seq_padding !== after.seq_padding) {
+      fields.push({
+        field: "seq_padding",
+        label: "จำนวนหลัก",
+        before: String(before.seq_padding),
+        after: String(after.seq_padding),
+      });
+    }
+    if (before.reset_period !== after.reset_period) {
+      fields.push({
+        field: "reset_period",
+        label: "รีเซ็ต",
+        before:
+          RESET_LABELS[before.reset_period as keyof typeof RESET_LABELS] ?? before.reset_period,
+        after: RESET_LABELS[after.reset_period as keyof typeof RESET_LABELS] ?? after.reset_period,
+      });
+    }
+    if (fields.length > 0) {
+      changes.push({ docType, label: DOC_TYPE_LABELS[docType].th, changes: fields });
     }
   }
   return changes;

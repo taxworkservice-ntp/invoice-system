@@ -207,6 +207,13 @@ export interface UserPreferences {
   updated_at: string;
 }
 
+export type DocNumberFormatPreset =
+  | "year_month"
+  | "year"
+  | "running"
+  | "slash_year_month"
+  | "short_year_month";
+
 export interface DocNumberSequence {
   id: string;
   user_id: string;
@@ -217,6 +224,11 @@ export interface DocNumberSequence {
   last_month: number | null;
   last_sequence: number;
   start_sequence: number;
+  format_preset: DocNumberFormatPreset;
+  seq_padding: number;
+  number_era: "be" | "ce";
+  reset_period: "never" | "yearly" | "monthly";
+  period_key: string | null;
   last_change_reason?: string | null;
 }
 

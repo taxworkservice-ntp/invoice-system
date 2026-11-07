@@ -32,13 +32,14 @@ export function SectionHeader({ children, action }: { children: ReactNode; actio
 }
 
 export type AdminClientTabId =
-  "overview" | "features" | "team" | "documents" | "reports" | "activity" | "manage";
+  "overview" | "features" | "team" | "documents" | "numbering" | "reports" | "activity" | "manage";
 
 export const ADMIN_CLIENT_TABS: { id: AdminClientTabId; label: string }[] = [
   { id: "overview", label: "ภาพรวม" },
   { id: "features", label: "ฟีเจอร์" },
   { id: "team", label: "ทีม" },
   { id: "documents", label: "เอกสาร" },
+  { id: "numbering", label: "เลขที่เอกสาร" },
   { id: "reports", label: "รายงาน" },
   { id: "activity", label: "กิจกรรม" },
   { id: "manage", label: "การจัดการ" },

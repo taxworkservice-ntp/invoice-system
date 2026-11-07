@@ -8,12 +8,20 @@ async function handleGetClient(id) {
   if (error) throw error;
   if (!data?.user) throw new ApiError(404, "Client not found");
 
+  const { data: numbering, error: numberingError } = await supabaseAdmin
+    .from("doc_number_sequences")
+    .select("*")
+    .eq("user_id", id)
+    .order("doc_type");
+  if (numberingError) throw numberingError;
+
   return {
     user: {
       id: data.user.id,
       email: data.user.email || "",
       isActive: !data.user.banned_until,
     },
+    numbering: numbering ?? [],
   };
 }
 

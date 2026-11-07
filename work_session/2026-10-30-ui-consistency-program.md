@@ -319,3 +319,50 @@ unit tests, print estimate + fill checks passed.
   `remove_testko_customers.sql`, `import_testco_customers.sql`) are optional
   data operations, not schema.
 - `pdfWarm.test.ts` remains a pre-existing stale expectation (layoutVersion 3).
+
+## 2026-11-08 — Admin-controlled number format + 3-decimal dimensions
+
+### Slice A — 3-decimal job-detail dimensions (committed `1dbbaa6`)
+
+- `deals/new.tsx` dimension inputs accept up to 3 decimals (`maxFractionDigits={3}`),
+  placeholders `24.5` / `35.5`, hint “ทศนิยมได้สูงสุด 3 ตำแหน่ง”.
+- Trailing zeros stay trimmed, so `13.755 × 75.5 นิ้ว` survives the summary;
+  `e2e/deal-job-details.spec.ts` asserts it.
+
+### Slice B — the operator admin owns the number format
+
+- **Migration** `sql/20261108_doc_number_format_admin.sql` (applied to production):
+  adds `format_preset`, `seq_padding`, `number_era`, `reset_period`, `period_key`
+  to `doc_number_sequences`; backfills from existing documents; constraints;
+  `initialize_doc_number_sequence` (defaults on insert), `guard_doc_number_format`
+  (only `is_admin()` may change format; the era locks after the first document),
+  `compute_doc_number`, rewritten `generate_doc_number`, `preview_doc_number`,
+  `admin_save_doc_number_format`, and a `save_doc_number_sequences` that now only
+  writes prefix/start. Existing numbers are never renumbered.
+- **Presets:** `year_month`, `year`, `running`, `slash_year_month`,
+  `short_year_month`; padding 3–5; reset never/yearly/monthly (validated against
+  the format server-side). `src/lib/docNumberFormat.ts` carries labels, samples,
+  reset options and era labels.
+- **Owner** (Settings › เลขที่เอกสาร) keeps prefix + start only; the format column
+  is read-only and shows the label, padding · era · reset and a live sample.
+- **Admin** (Clients › เลขที่เอกสาร, new tab) selects format/padding/reset per
+  document type, sees the read-only prefix/era and the next number from
+  `preview_doc_number`, and saves through the shared confirmation modal
+  (reason ≥5 chars + type `ยืนยัน`). The GET `/api/admin/clients/:id` now also
+  returns the workspace sequences so the admin panel can read them (admin RLS is
+  member-scoped; the save itself still runs with the admin's JWT through the
+  `is_admin()`-gated RPC).
+- **Era copy:** admin ManageTab now explains that the year era drives display
+  dates and the initial era of new sequences only.
+- Verification: `tsc`, strict `lint`, `build`, `vitest` unit suite (316 tests,
+  excluding the known stale `pdfWarm`), new `docNumberFormat` + `numberingDiff`
+  tests.
+- Not covered locally: the admin tab path (local mode has no service-role key)
+  and an admin e2e account; verify on staging with an admin login.
+
+### Still pending
+
+- PDF 502 stabilization (`ERR_INSUFFICIENT_RESOURCES` in the headless render).
+- Modern print template signature labels for billing/quotation/credit/debit.
+- Print-title Phase 2 (other document types + custom text).
+- Delivery-note desktop item-table UX.

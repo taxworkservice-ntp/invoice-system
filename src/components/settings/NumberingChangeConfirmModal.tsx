@@ -1,7 +1,7 @@
-import { Modal } from "../../../../components/ui/Modal";
-import { Button } from "../../../../components/ui/Button";
-import { Input } from "../../../../components/ui/Input";
-import type { NumberingChange } from "../../../../lib/numberingDiff";
+import { Modal } from "../ui/Modal";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import type { NumberingChange } from "../../lib/numberingDiff";
 
 export interface NumberingChangeConfirmModalProps {
   open: boolean;

@@ -4,7 +4,6 @@ import { useAuth, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
-import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { SaveBar } from "../../../components/ui/SaveBar";
 import { Input } from "../../../components/ui/Input";
@@ -20,7 +19,13 @@ import {
   toNumberingDraft,
   type NumberingDraft,
 } from "../../../lib/numberingDiff";
-import { NumberingChangeConfirmModal } from "./_components/NumberingChangeConfirmModal";
+import { NumberingChangeConfirmModal } from "../../../components/settings/NumberingChangeConfirmModal";
+import {
+  eraLabel,
+  formatDocNumberSample,
+  formatOption,
+  RESET_LABELS,
+} from "../../../lib/docNumberFormat";
 
 const DOC_TYPES: DocumentType[] = [
   "quotation",
@@ -41,7 +46,6 @@ function toDraftMap(rows: Record<string, DocNumberSequence>) {
       : {
           doc_type: docType,
           prefix: "",
-          reset_yearly: true,
           start_sequence: 1,
         };
   }
@@ -92,10 +96,6 @@ export default function SettingsNumberingPage() {
     return sequences[docType]?.prefix || "";
   }
 
-  function getResetYearly(docType: DocumentType): boolean {
-    return sequences[docType]?.reset_yearly ?? true;
-  }
-
   function getStartSequence(docType: DocumentType): number {
     return sequences[docType]?.start_sequence ?? 1;
   }
@@ -107,18 +107,6 @@ export default function SettingsNumberingPage() {
         ...prev[docType],
         doc_type: docType,
         prefix: value,
-        start_sequence: prev[docType]?.start_sequence ?? 1,
-      } as DocNumberSequence,
-    }));
-  }
-
-  function setResetYearly(docType: DocumentType, value: boolean) {
-    setSequences((prev) => ({
-      ...prev,
-      [docType]: {
-        ...prev[docType],
-        doc_type: docType,
-        reset_yearly: value,
         start_sequence: prev[docType]?.start_sequence ?? 1,
       } as DocNumberSequence,
     }));
@@ -202,7 +190,6 @@ export default function SettingsNumberingPage() {
       const rows = DOC_TYPES.map((docType) => ({
         doc_type: docType,
         prefix: getPrefix(docType).trim(),
-        reset_yearly: getResetYearly(docType),
         start_sequence: getStartSequence(docType),
       }));
 
@@ -266,8 +253,8 @@ export default function SettingsNumberingPage() {
             description="การเปลี่ยนเลขที่เอกสารต้องทำโดยเจ้าของพื้นที่ทำงานเท่านั้น"
           >
             <p className="text-body leading-6 text-ink-600">
-              เฉพาะเจ้าของพื้นที่ทำงานเท่านั้นที่ดูและแก้ไขเลขที่เอกสารได้
-              หากต้องการเปลี่ยน โปรดติดต่อเจ้าของพื้นที่ทำงาน
+              เฉพาะเจ้าของพื้นที่ทำงานเท่านั้นที่ดูและแก้ไขเลขที่เอกสารได้ หากต้องการเปลี่ยน
+              โปรดติดต่อเจ้าของพื้นที่ทำงาน
             </p>
           </SectionCard>
         </div>
@@ -282,7 +269,7 @@ export default function SettingsNumberingPage() {
 
         <SectionCard
           title="เลขที่เอกสาร"
-          description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร — การเปลี่ยนต้องยืนยันและบันทึกเหตุผล"
+          description="กำหนด prefix ของแต่ละประเภทเอกสาร — รูปแบบเลขที่และปีในเลขดูแลโดยผู้ดูแลระบบ"
         >
           <div className="space-y-4">
             {isDevMode && (
@@ -338,7 +325,7 @@ export default function SettingsNumberingPage() {
                     <th className="text-left py-2 pr-2">ประเภทเอกสาร</th>
                     <th className="text-left py-2 pr-2">Prefix</th>
                     {isDevMode && <th className="text-left py-2 pr-2">Start at</th>}
-                    <th className="text-center py-2">รีเซ็ตเลขรันทุกเดือน</th>
+                    <th className="text-left py-2 pr-2">รูปแบบ (ดูแลโดยผู้ดูแลระบบ)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -374,13 +361,36 @@ export default function SettingsNumberingPage() {
                           />
                         </td>
                       )}
-                      <td className="py-2 text-center">
-                        <div className="flex justify-center">
-                          <Switch
-                            checked={getResetYearly(docType)}
-                            onChange={(checked) => setResetYearly(docType, checked)}
-                          />
-                        </div>
+                      <td className="py-2 pr-2 align-top">
+                        {(() => {
+                          const sequence = sequences[docType];
+                          if (!sequence) {
+                            return <span className="text-label text-ink-400">—</span>;
+                          }
+                          const option = formatOption(sequence.format_preset);
+                          const resetLabel =
+                            RESET_LABELS[sequence.reset_period as keyof typeof RESET_LABELS] ??
+                            sequence.reset_period;
+                          return (
+                            <div className="space-y-0.5">
+                              <div className="text-label font-medium text-ink-700">
+                                {option?.label ?? sequence.format_preset}
+                              </div>
+                              <div className="text-label text-ink-500">
+                                {sequence.seq_padding} หลัก · {eraLabel(sequence.number_era)} ·{" "}
+                                {resetLabel}
+                              </div>
+                              <div className="font-mono text-label text-ink-400">
+                                {formatDocNumberSample(
+                                  sequence.format_preset,
+                                  sequence.seq_padding,
+                                  sequence.number_era,
+                                  sequence.prefix || "INV",
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

@@ -8,6 +8,7 @@ import { ActivityTab } from "../../../components/admin/client/ActivityTab";
 import { DocumentsTab } from "../../../components/admin/client/DocumentsTab";
 import { FeaturesTab } from "../../../components/admin/client/FeaturesTab";
 import { ManageTab } from "../../../components/admin/client/ManageTab";
+import { NumberingTab } from "../../../components/admin/client/NumberingTab";
 import { OverviewTab } from "../../../components/admin/client/OverviewTab";
 import { ReportsTab } from "../../../components/admin/client/ReportsTab";
 import { TeamTab } from "../../../components/admin/client/TeamTab";
@@ -190,6 +191,7 @@ export default function AdminClientDetailPage() {
           />
         )}
         {activeTab === "documents" && <DocumentsTab documents={documents} />}
+        {activeTab === "numbering" && <NumberingTab clientId={id} />}
         {activeTab === "reports" && <ReportsTab clientId={id} />}
         {activeTab === "activity" && (
           <ActivityTab activities={activities} activityDeals={activityDeals} />
